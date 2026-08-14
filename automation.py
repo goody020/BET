@@ -101,7 +101,10 @@ def run_sync():
         with _lock:
             RUNNING["sync"] = False
 
-
+        print("Automation: starting odds sync...")
+        db = SessionLocal()
+        match_and_save_odds(db)
+        db.close()
 def run_settlement():
     with _lock:
         if RUNNING["settlement"]:

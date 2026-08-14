@@ -295,22 +295,17 @@
           Login to load picks.
         </div>
       </div>
-      <div id="adminPanel" class="card hidden">
+          <div id="adminPanel" class="card hidden">
         <h2>Admin Panel</h2>
         
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
           <button id="adminSyncBtn" class="btn small" type="button">Force Sync</button>
           <button id="adminSettleBtn" class="btn small" type="button">Force Settle</button>
           <button id="adminRunAllBtn" class="btn small" type="button">Run All</button>
+          <button id="adminSyncOddsBtn" class="btn small" type="button">Sync Odds Only</button>
           <button id="adminLoadUsersBtn" class="btn small" type="button">Load Users</button>
           <button id="adminLoadPaymentsBtn" class="btn small" type="button">Load Payments</button>
         </div>
-
-        <div id="adminStatus" class="muted" style="margin-bottom:14px;"></div>
-
-        <div id="adminUsers" style="margin-bottom:20px;"></div>
-        <div id="adminPayments"></div>
-      </div>
       <div id="result"></div>
     </section>
   </main>
@@ -334,7 +329,14 @@
       <div id="legalContent"></div>
     </div>
   </div>
-
+    $("adminSyncOddsBtn").addEventListener("click", async function () {
+      try {
+        const res = await apiFetch("/admin/automation/sync-odds", { method: "POST" });
+        $("adminStatus").innerHTML = `<div class="msg success">Odds sync triggered: ${escapeHTML(res.status)}</div>`;
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
   <script>
     const API = "/api";
     let currentUser = null;
@@ -922,6 +924,14 @@
         $("adminPayments").innerHTML = html;
       } catch (err) {
         $("adminPayments").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+        $("adminSyncOddsBtn").addEventListener("click", async function () {
+      try {
+        const res = await apiFetch("/admin/automation/sync-odds", { method: "POST" });
+        $("adminStatus").innerHTML = `<div class="msg success">Odds sync triggered: ${escapeHTML(res.status)}</div>`;
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
       }
     });
        init();

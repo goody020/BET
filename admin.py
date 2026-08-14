@@ -1,12 +1,12 @@
 import os
 import threading
 from datetime import datetime, timedelta, timezone
-
+from sync_odds import match_and_save_odds
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
-from app import User, get_db, get_current_user
+from app import User, get_db, get_current_user, SessionLocal
+from app import SessionLocal, User, get_db, get_current_user
 from flutterwave import Payment
 from automation import (
     AUTOMATION_ENABLED,
@@ -87,7 +87,15 @@ def trigger_run_all(user: User = Depends(require_admin)):
     start_background_job(run_all)
     return {"status": "run_all_started"}
 
-
+@router.post("/automation/sync-odds")
+def trigger_odds_sync(user: User = Depends(require_admin)):
+    try:
+        db = SessionLocal()
+        match_and_save_odds(db)
+        db.close()
+        return {"status": "odds_sync_success"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), user: User = Depends(require_admin)):
     users = db.query(User).order_by(User.id.desc()).limit(500).all()
@@ -156,3 +164,12 @@ def list_payments(db: Session = Depends(get_db), user: User = Depends(require_ad
         }
         for p in payments
     ]
+@router.post("/automation/sync-odds")
+def trigger_odds_sync(user: User = Depends(require_admin)):
+    try:
+        db = SessionLocal()
+        match_and_save_odds(db)
+        db.close()
+        return {"status": "odds_sync_success"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}

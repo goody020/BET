@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean
 from datetime import datetime, timezone
 from app import Base
 
@@ -40,3 +40,19 @@ class Prediction(Base):
     status = Column(String(50), default="pending") # pending, won, lost, void
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class OddsInsight(Base):
+    __tablename__ = "odds_insights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fixture_id = Column(Integer, ForeignKey("fixtures.id"))
+    
+    market = Column(String(50))          # e.g., OVER_25, DC_1X
+    bookmaker_odds = Column(Float)       # Average decimal odds
+    market_prob = Column(Float)          # True probability after removing bookie margin
+    model_prob = Column(Float)           # Our Poisson model probability
+    value_edge = Column(Float)           # model_prob - market_prob
+    is_value_bet = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))   

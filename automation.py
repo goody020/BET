@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app import SessionLocal
 from sync_sports import sync_fixtures_and_predictions
 from settle_predictions import update_fixtures_from_api, settle_all
-
+from sync_odds import match_and_save_odds
 
 STATE_FILE = Path(__file__).resolve().parent / "automation_state.json"
 

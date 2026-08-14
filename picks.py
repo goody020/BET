@@ -160,7 +160,34 @@ def fetch_bonus(db: Session, market: str, limit: int = 2):
     return merge_selected([], rows, limit, max_per_fixture=1)
 
 
-def serialize_pick(pred: Prediction, fixture: Fixture, locked: bool = False):
+from sports_models import Fixture, Prediction, OddsInsight
+
+def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False):
+    # Check if this specific market is a mathematically verified Value Bet
+    insight = db.query(OddsInsight).filter(
+        OddsInsight.fixture_id == fixture.id,
+        OddsInsight.market == pred.market,
+        OddsInsight.is_value_bet == True
+    ).first()
+
+    return {
+        "prediction_id": pred.id,
+        "fixture_id": fixture.id,
+        "league": fixture.league,
+        "home_team": fixture.home_team,
+        "away_team": fixture.away_team,
+        "kickoff": format_kickoff(fixture.kickoff),
+        "status": fixture.status,
+        "market": pred.market,
+        "market_label": SAFE_MARKET_LABELS.get(pred.market, pred.market),
+        "pick": pred.pick,
+        "probability": pred.probability,
+        "confidence_score": pred.confidence_score,
+        "confidence_label": pred.confidence_label,
+        "locked": locked,
+        "is_value_bet": bool(insight),
+        "market_edge": round(insight.value_edge * 100, 1) if insight else 0
+    }
     return {
         "prediction_id": pred.id,
         "fixture_id": fixture.id,
@@ -194,10 +221,10 @@ def picks_today(
 
     if user.is_premium:
         for pred, fixture in premium_safe_rows:
-            safe_picks.append(serialize_pick(pred, fixture, locked=False))
+            safe_picks.append(serialize_pick(pred, fixture, db, locked=False))
 
         for pred, fixture in cs_rows + htft_rows:
-            bonus_picks.append(serialize_pick(pred, fixture, locked=False))
+            bonus_picks.append(serialize_pick(pred, fixture, db, locked=False))
 
         return {
             "plan": user.plan,
@@ -214,10 +241,10 @@ def picks_today(
         included_prediction_ids.append(pred.id)
 
         if index == 0:
-            unlocked_free.append(serialize_pick(pred, fixture, locked=False))
+            unlocked_free.append(serialize_pick(pred, fixture, db, locked=False))
             unlocked_fixture_ids.append(fixture.id)
         else:
-            locked_preview.append(serialize_pick(pred, fixture, locked=True))
+            locked_preview.append(serialize_pick(pred, fixture, db, locked=True))
 
     extra_query = base_safe_query(db).filter(
         Prediction.probability >= 0.66,
@@ -234,12 +261,10 @@ def picks_today(
     ).limit(80).all()
 
     extra_selected = merge_selected([], extra_rows, limit=3, max_per_fixture=1)
-
     extra_picks = [
-        serialize_pick(pred, fixture, locked=False)
+        serialize_pick(pred, fixture, db, locked=False)
         for pred, fixture in extra_selected
     ]
-
     safe_picks = unlocked_free + extra_picks + locked_preview
 
     if not safe_picks:
@@ -250,12 +275,12 @@ def picks_today(
         fallback_selected = merge_selected([], fallback_rows, limit=3, max_per_fixture=1)
 
         safe_picks = [
-            serialize_pick(pred, fixture, locked=False)
+            serialize_pick(pred, fixture, db, locked=False)
             for pred, fixture in fallback_selected
         ]
 
     for pred, fixture in cs_rows + htft_rows:
-        bonus_picks.append(serialize_pick(pred, fixture, locked=True))
+        bonus_picks.append(serialize_pick(pred, fixture, db, locked=True))
 
     return {
         "plan": user.plan,

@@ -959,9 +959,10 @@
         <div style="margin-top:10px;">
           <strong>${escapeHTML(p.market_label)}:</strong>
           ${escapeHTML(p.pick)}
-          <span class="badge confidence">
+                    <span class="badge confidence">
             ${escapeHTML(p.confidence_label)} ${escapeHTML(p.confidence_score)}/100
           </span>
+          ${p.is_value_bet ? `<span class="badge" style="background:#14532d; color:#bbf7d0;">VALUE BET +${escapeHTML(p.market_edge)}%</span>` : ""}
           <span class="muted">Prob: ${pct(p.probability)}</span>
         </div>
       `;

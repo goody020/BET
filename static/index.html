@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CS/HTFT Predictor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b1220;
+      color: #e5e7eb;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid #1f2937;
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+
+    .btn.small {
+      width: auto;
+      padding: 6px 10px;
+      margin: 0;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      background: #020617;
+    }
+
+    .tab.active {
+      border-color: #2563eb;
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .muted {
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      margin: 0 8px;
+    }
+
+    .badge.free {
+      background: #1f2937;
+      color: #d1d5db;
+    }
+
+    .badge.premium {
+      background: #14532d;
+      color: #bbf7d0;
+    }
+
+    .badge.confidence {
+      background: #1d4ed8;
+      color: #dbeafe;
+    }
+
+    .msg {
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin: 10px 0;
+    }
+
+    .msg.info {
+      background: #172554;
+      border: 1px solid #1d4ed8;
+    }
+
+    .msg.success {
+      background: #14532d;
+      border: 1px solid #16a34a;
+    }
+
+    .msg.error {
+      background: #7f1d1d;
+      border: 1px solid #dc2626;
+    }
+
+    .warn {
+      background: #451a03;
+      border: 1px solid #92400e;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    footer {
+      padding: 18px;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    @media (max-width: 750px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div><strong>CS/HTFT Predictor</strong></div>
+    <div id="userArea" style="display:flex; gap:10px; align-items:center;"></div>
+  </header>
+
+  <main class="wrap">
+    <div id="message"></div>
+
+    <section id="authSection" class="card">
+      <h2>Account</h2>
+
+      <div class="tabs">
+        <button id="tabLogin" class="tab active" type="button">Login</button>
+        <button id="tabRegister" class="tab" type="button">Register</button>
+      </div>
+
+      <form id="loginForm">
+        <label>Email</label>
+        <input id="loginEmail" type="email" required placeholder="test@example.com" />
+
+        <label>Password</label>
+        <input id="loginPassword" type="password" required minlength="8" placeholder="Password123!" />
+
+        <button class="btn" type="submit">Login</button>
+      </form>
+
+      <form id="registerForm" class="hidden">
+        <label>Email</label>
+        <input id="registerEmail" type="email" required placeholder="test@example.com" />
+
+        <label>Password</label>
+        <input id="registerPassword" type="password" required minlength="8" placeholder="At least 8 characters" />
+
+        <button class="btn" type="submit">Create free account</button>
+      </form>
+    </section>
+
+    <section id="dashboardSection" class="hidden">
+           <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">Performance</h2>
+          <button id="refreshPerformanceBtn" class="btn small" type="button">Refresh</button>
+        </div>
+
+        <div id="performance" class="muted">
+          Login to load performance.
+        </div>
+      </div> 
+      <div class="card">
+        <h2>Prediction</h2>
+
+        <div class="warn">
+          Informational only. No guaranteed wins. Do not chase losses. 18+.
+        </div>
+
+        <form id="predictForm">
+          <div class="grid">
+            <div>
+              <label>Home team</label>
+              <input id="home_team" required placeholder="Arsenal" />
+            </div>
+
+            <div>
+              <label>Away team</label>
+              <input id="away_team" required placeholder="Chelsea" />
+            </div>
+
+            <div>
+              <label>Home xG optional</label>
+              <input id="home_xg" type="number" step="0.01" min="0" max="6" placeholder="1.55" />
+            </div>
+
+            <div>
+              <label>Away xG optional</label>
+              <input id="away_xg" type="number" step="0.01" min="0" max="6" placeholder="1.10" />
+            </div>
+          </div>
+
+          <label>Data quality / verification level</label>
+          <select id="data_quality">
+            <option value="0.35" selected>Low: team names only / no verified data</option>
+            <option value="0.55">Basic: manual stats entered</option>
+            <option value="0.75">Verified: stats, injuries, lineups checked</option>
+            <option value="0.90">Strong: stats + odds/market movement checked</option>
+          </select>
+
+          <button class="btn" type="submit">Generate prediction</button>
+        </form>
+      </div>
+
+      <div id="upgradeCard" class="card hidden">
+        <h3>Premium</h3>
+        <p class="muted">
+          Upgrade to unlock HT/FT predictions and alternatives.
+          Payment is processed by Flutterwave.
+        </p>
+        <button id="upgradeBtn" class="btn" type="button">Upgrade to premium</button>
+      </div>
+
+           <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">Today's Picks</h2>
+          <button id="refreshPicksBtn" class="btn small" type="button">Refresh</button>
+        </div>
+
+        <div id="picks" class="muted">
+          Login to load picks.
+        </div>
+      </div>
+      <div id="adminPanel" class="card hidden">
+        <h2>Admin Panel</h2>
+        
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+          <button id="adminSyncBtn" class="btn small" type="button">Force Sync</button>
+          <button id="adminSettleBtn" class="btn small" type="button">Force Settle</button>
+          <button id="adminRunAllBtn" class="btn small" type="button">Run All</button>
+          <button id="adminLoadUsersBtn" class="btn small" type="button">Load Users</button>
+          <button id="adminLoadPaymentsBtn" class="btn small" type="button">Load Payments</button>
+        </div>
+
+        <div id="adminStatus" class="muted" style="margin-bottom:14px;"></div>
+
+        <div id="adminUsers" style="margin-bottom:20px;"></div>
+        <div id="adminPayments"></div>
+      </div>
+      <div id="result"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div style="max-width:1000px; margin:0 auto; padding:18px; text-align:center;">
+      <p>18+. Predictions are informational only. No outcome is guaranteed. Gambling involves risk. Set limits. Do not chase losses.</p>
+      <div style="margin-top:10px; display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
+        <a href="#" onclick="showLegal('terms'); return false;" style="color:#93c5fd;">Terms of Service</a>
+        <a href="#" onclick="showLegal('privacy'); return false;" style="color:#93c5fd;">Privacy Policy</a>
+        <a href="#" onclick="showLegal('refund'); return false;" style="color:#93c5fd;">Refund Policy</a>
+        <a href="#" onclick="showLegal('disclaimer'); return false;" style="color:#93c5fd;">Responsible Gambling</a>
+      </div>
+      <p style="margin-top:15px; font-size:12px;">&copy; 2026 CS/HTFT Predictor. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <div id="legalModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100; overflow-y:auto;">
+    <div style="max-width:800px; margin:40px auto; background:#111827; padding:20px; border-radius:14px; border:1px solid #374151; position:relative;">
+      <button onclick="document.getElementById('legalModal').style.display='none'" style="position:absolute; top:10px; right:15px; background:none; border:none; color:#fff; font-size:24px; cursor:pointer;">&times;</button>
+      <div id="legalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = "/api";
+    let currentUser = null;
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, function (c) {
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[c];
+      });
+    }
+
+    function pct(value) {
+      return (Number(value) * 100).toFixed(1) + "%";
+    }
+
+    function showMessage(text, type) {
+      type = type || "info";
+      const el = $("message");
+      el.innerHTML = `<div class="msg ${escapeHTML(type)}">${escapeHTML(text)}</div>`;
+
+      if (type === "success") {
+        setTimeout(() => {
+          el.innerHTML = "";
+        }, 6000);
+      }
+    }
+
+    async function apiFetch(path, options) {
+      options = options || {};
+
+      const headers = Object.assign(
+        {
+          "Content-Type": "application/json"
+        },
+        options.headers || {}
+      );
+
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        headers["Authorization"] = "Bearer " + token;
+      }
+
+      const res = await fetch(API + path, Object.assign({}, options, {
+        headers: headers
+      }));
+
+      let data = null;
+
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (!res.ok) {
+        let message = (data && (data.detail || data.message)) || ("Request failed with status " + res.status);
+
+        if (Array.isArray(message)) {
+          message = message.map(function (item) {
+            return item.msg || JSON.stringify(item);
+          }).join(" | ");
+        }
+
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    function setSession(token, user) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      currentUser = user;
+      updateUI();
+    }
+
+    function clearSession() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      currentUser = null;
+      updateUI();
+    }
+
+    function updateUI() {
+      const token = localStorage.getItem("token");
+
+      const authSection = $("authSection");
+      const dashboardSection = $("dashboardSection");
+      const userArea = $("userArea");
+      const upgradeCard = $("upgradeCard");
+
+      if (token && currentUser) {
+        authSection.classList.add("hidden");
+        dashboardSection.classList.remove("hidden");
+
+        const premiumUntil = currentUser.premium_until
+          ? new Date(currentUser.premium_until).toLocaleString()
+          : "";
+
+        userArea.innerHTML = `
+          <span class="muted">${escapeHTML(currentUser.email)}</span>
+          <span class="badge ${currentUser.is_premium ? "premium" : "free"}">${escapeHTML(currentUser.plan)}</span>
+          ${currentUser.is_premium && premiumUntil ? `<span class="muted">Until ${escapeHTML(premiumUntil)}</span>` : ""}
+          <button class="btn small" onclick="logout()">Logout</button>
+        `;
+
+        if (currentUser.is_premium) {
+          upgradeCard.classList.add("hidden");
+        } else {
+          upgradeCard.classList.remove("hidden");
+        }
+              loadPicks();
+      } else {
+        authSection.classList.remove("hidden");
+        dashboardSection.classList.add("hidden");
+        userArea.innerHTML = "";
+        upgradeCard.classList.add("hidden");
+
+        const picksEl = $("picks");
+        if (picksEl) {
+          picksEl.innerHTML = "Login to load picks.";
+        }
+      }
+    }
+
+    function logout() {
+      clearSession();
+      $("result").innerHTML = "";
+      showMessage("Logged out.", "info");
+    }
+
+    window.logout = logout;
+
+    function showLogin() {
+      $("loginForm").classList.remove("hidden");
+      $("registerForm").classList.add("hidden");
+      $("tabLogin").classList.add("active");
+      $("tabRegister").classList.remove("active");
+    }
+
+    function showRegister() {
+      $("loginForm").classList.add("hidden");
+      $("registerForm").classList.remove("hidden");
+      $("tabLogin").classList.remove("active");
+      $("tabRegister").classList.add("active");
+    }
+
+    $("tabLogin").addEventListener("click", showLogin);
+    $("tabRegister").addEventListener("click", showRegister);
+
+    $("loginForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const email = $("loginEmail").value.trim();
+      const password = $("loginPassword").value;
+
+      try {
+        const data = await apiFetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email,
+            password: password
+          })
+        });
+
+        setSession(data.access_token, data.user);
+        showMessage("Logged in.", "success");
+        $("loginForm").reset();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    });
+
+    $("registerForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const email = $("registerEmail").value.trim();
+      const password = $("registerPassword").value;
+
+      try {
+        await apiFetch("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email,
+            password: password
+          })
+        });
+
+        showMessage("Account created. Logging you in...", "success");
+
+        const loginData = await apiFetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email,
+            password: password
+          })
+        });
+
+        setSession(loginData.access_token, loginData.user);
+        $("registerForm").reset();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    });
+
+    $("upgradeBtn").addEventListener("click", async function () {
+      try {
+        showMessage("Starting Flutterwave checkout...", "info");
+
+        const data = await apiFetch("/billing/flutterwave/initialize", {
+          method: "POST"
+        });
+
+        if (data.payment_url) {
+          window.location.href = data.payment_url;
+          return;
+        }
+
+        showMessage("No payment URL returned.", "error");
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    });
+
+    $("predictForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const payload = {
+        home_team: $("home_team").value.trim(),
+        away_team: $("away_team").value.trim(),
+        home_xg: $("home_xg").value ? Number($("home_xg").value) : null,
+        away_xg: $("away_xg").value ? Number($("away_xg").value) : null,
+        data_quality: Number($("data_quality").value)
+      };
+
+      try {
+        const data = await apiFetch("/predictions/predict", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        renderResult(data);
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    });
+
+    function renderResult(data) {
+      const result = $("result");
+
+      if (!data) {
+        result.innerHTML = "";
+        return;
+      }
+
+      const cs = data.correct_score || null;
+      const hf = data.ht_ft || null;
+
+      let html = `
+        <div class="card">
+          <h2>${escapeHTML(data.match || "Prediction")}</h2>
+          <div class="muted">Plan: ${escapeHTML(data.plan || "")} | Data quality: ${Math.round((data.data_quality || 0) * 100)}%</div>
+          <div class="muted">Expected goals: ${escapeHTML(data.expected_goals?.home ?? "")} - ${escapeHTML(data.expected_goals?.away ?? "")}</div>
+        </div>
+      `;
+
+      if (cs) {
+        html += `
+          <div class="card">
+            <h3>Correct Score</h3>
+            <p><strong>Pick:</strong> ${escapeHTML(cs.prediction)}</p>
+            <p><strong>Model probability:</strong> ${pct(cs.probability)}</p>
+            <p>
+              <strong>Confidence:</strong>
+              <span class="badge confidence">${escapeHTML(cs.confidence)} ${escapeHTML(cs.confidence_score)}/100</span>
+            </p>
+        `;
+
+        if (cs.alternatives && cs.alternatives.length) {
+          html += `<div class="muted">Alternatives: ${cs.alternatives.map(function (a) {
+            return escapeHTML(a.score) + " (" + pct(a.probability) + ")";
+          }).join(", ")}</div>`;
+        } else if (cs.alternatives_locked) {
+          html += `<div class="muted">Alternatives locked. Upgrade to premium.</div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      if (hf && hf.locked) {
+        html += `
+          <div class="card">
+            <h3>Half Time / Full Time</h3>
+            <div class="warn">${escapeHTML(hf.message || "Locked")}</div>
+          </div>
+        `;
+      } else if (hf && hf.prediction) {
+        html += `
+          <div class="card">
+            <h3>Half Time / Full Time</h3>
+            <p><strong>Pick:</strong> ${escapeHTML(hf.prediction)}</p>
+            <p><strong>Model probability:</strong> ${pct(hf.probability)}</p>
+            <p>
+              <strong>Confidence:</strong>
+              <span class="badge confidence">${escapeHTML(hf.confidence)} ${escapeHTML(hf.confidence_score)}/100</span>
+            </p>
+        `;
+
+        if (hf.alternatives && hf.alternatives.length) {
+          html += `<div class="muted">Alternatives: ${hf.alternatives.map(function (a) {
+            return escapeHTML(a.option) + " (" + pct(a.probability) + ")";
+          }).join(", ")}</div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      if (data.verification && data.verification.length) {
+        html += `
+          <div class="card">
+            <h3>Verification</h3>
+            <ul>
+              ${data.verification.map(function (item) {
+                return `<li>${escapeHTML(item)}</li>`;
+              }).join("")}
+            </ul>
+            <div class="warn">${escapeHTML(data.responsible_gambling || "")}</div>
+          </div>
+        `;
+      }
+
+      result.innerHTML = html;
+    }
+    async function loadPicks() {
+      const picksEl = $("picks");
+
+      if (!currentUser) {
+        picksEl.innerHTML = "Login to load picks.";
+        return;
+      }
+
+      picksEl.innerHTML = '<div class="muted">Loading picks...</div>';
+
+      try {
+        const data = await apiFetch("/picks/today", {
+          method: "GET"
+        });
+
+        renderPicks(data);
+      } catch (err) {
+        picksEl.innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    }
+
+    function renderPicks(data) {
+      const picksEl = $("picks");
+
+      if (!data.fixtures || data.fixtures.length === 0) {
+        picksEl.innerHTML = "<div class='muted'>No picks available. Run sync_sports.py or check your API key.</div>";
+        return;
+      }
+
+      let html = "";
+
+      data.fixtures.forEach(function (fixture) {
+        const kickoff = fixture.kickoff
+          ? new Date(fixture.kickoff).toLocaleString()
+          : "";
+
+        html += `<div class="card" style="margin:10px 0;">`;
+
+        html += `
+          <div style="display:flex; justify-content:space-between; gap:10px;">
+            <div>
+              <strong>${escapeHTML(fixture.home_team)} vs ${escapeHTML(fixture.away_team)}</strong>
+              <div class="muted">${escapeHTML(fixture.league || "")}</div>
+            </div>
+            <div class="muted" style="text-align:right;">
+              ${escapeHTML(kickoff)}<br />
+              Status: ${escapeHTML(fixture.status || "")}
+            </div>
+          </div>
+        `;
+
+        const cs = fixture.correct_score;
+
+        if (cs) {
+          if (cs.locked) {
+            html += `<div class="warn" style="margin-top:10px;">Correct Score: ${escapeHTML(cs.message || "Locked")}</div>`;
+          } else {
+            html += `<div style="margin-top:10px;"><strong>Correct Score:</strong> ${escapeHTML(cs.pick)}`;
+
+            if (cs.confidence_label) {
+              html += ` <span class="badge confidence">${escapeHTML(cs.confidence_label)}${cs.confidence_score ? " " + escapeHTML(cs.confidence_score) + "/100" : ""}</span>`;
+            }
+
+            if (cs.probability !== undefined && cs.probability !== null) {
+              html += ` <span class="muted">Prob: ${pct(cs.probability)}</span>`;
+            }
+
+            html += `</div>`;
+          }
+        }
+
+        const hf = fixture.ht_ft;
+
+        if (hf) {
+          if (hf.locked) {
+            html += `<div class="warn" style="margin-top:8px;">HT/FT: ${escapeHTML(hf.message || "Locked")}</div>`;
+          } else {
+            html += `<div style="margin-top:8px;"><strong>HT/FT:</strong> ${escapeHTML(hf.pick)}`;
+
+            if (hf.confidence_label) {
+              html += ` <span class="badge confidence">${escapeHTML(hf.confidence_label)}${hf.confidence_score ? " " + escapeHTML(hf.confidence_score) + "/100" : ""}</span>`;
+            }
+
+            if (hf.probability !== undefined && hf.probability !== null) {
+              html += ` <span class="muted">Prob: ${pct(hf.probability)}</span>`;
+            }
+
+            html += `</div>`;
+          }
+        }
+
+        html += `</div>`;
+      });
+
+      picksEl.innerHTML = html;
+    }
+    async function checkPaymentRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get("payment");
+
+      if (!payment) {
+        return;
+      }
+
+      if (payment === "success") {
+        try {
+          const me = await apiFetch("/auth/me");
+          currentUser = me;
+          localStorage.setItem("user", JSON.stringify(me));
+          updateUI();
+
+          if (me.is_premium) {
+            showMessage("Payment successful. Premium is active.", "success");
+          } else {
+            showMessage("Payment detected but premium is not active. Contact support.", "error");
+          }
+        } catch (err) {
+          showMessage("Payment successful, but account refresh failed. Login again.", "error");
+        }
+      } else if (payment === "cancelled") {
+        showMessage("Payment cancelled.", "error");
+      } else {
+        showMessage("Payment was not completed.", "error");
+      }
+
+      window.history.replaceState({}, "", "/app");
+    }
+
+    async function init() {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+
+      if (token && savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+          updateUI();
+
+          const me = await apiFetch("/auth/me");
+          currentUser = me;
+          localStorage.setItem("user", JSON.stringify(me));
+          updateUI();
+        } catch (err) {
+          clearSession();
+        }
+      } else {
+        updateUI();
+      }
+    }
+    $("refreshPicksBtn").addEventListener("click", function () {
+      loadPicks();
+    });
+    async function loadAdminPanel() {
+      if (!currentUser || !currentUser.is_admin) {
+        return;
+      }
+
+      const panel = $("adminPanel");
+      if (panel) {
+        panel.classList.remove("hidden");
+      }
+    }
+
+    $("adminSyncBtn").addEventListener("click", async function () {
+      try {
+        const res = await apiFetch("/admin/automation/sync", { method: "POST" });
+        $("adminStatus").innerHTML = `<div class="msg success">Sync triggered: ${escapeHTML(res.status)}</div>`;
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+
+    $("adminSettleBtn").addEventListener("click", async function () {
+      try {
+        const res = await apiFetch("/admin/automation/settle", { method: "POST" });
+        $("adminStatus").innerHTML = `<div class="msg success">Settlement triggered: ${escapeHTML(res.status)}</div>`;
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+
+    $("adminRunAllBtn").addEventListener("click", async function () {
+      try {
+        const res = await apiFetch("/admin/automation/run-all", { method: "POST" });
+        $("adminStatus").innerHTML = `<div class="msg success">Run All triggered: ${escapeHTML(res.status)}</div>`;
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+
+    $("adminLoadUsersBtn").addEventListener("click", async function () {
+      try {
+        const users = await apiFetch("/admin/users", { method: "GET" });
+        let html = `<h3>Users (${users.length})</h3><table style="width:100%; font-size:13px; border-collapse:collapse;"><tr><th style="text-align:left; padding:4px;">ID</th><th style="text-align:left; padding:4px;">Email</th><th style="text-align:left; padding:4px;">Plan</th><th style="text-align:left; padding:4px;">Until</th><th style="text-align:right; padding:4px;">Action</th></tr>`;
+        
+        users.forEach(function (u) {
+          const until = u.premium_until ? new Date(u.premium_until).toLocaleDateString() : "-";
+          html += `<tr>
+            <td style="padding:4px;">${escapeHTML(u.id)}</td>
+            <td style="padding:4px;">${escapeHTML(u.email)}</td>
+            <td style="padding:4px;">${escapeHTML(u.plan)}</td>
+            <td style="padding:4px;">${escapeHTML(until)}</td>
+            <td style="text-align:right; padding:4px;">
+              <button class="btn small" onclick="grantPremium(${u.id})">+30 Days</button>
+            </td>
+          </tr>`;
+        });
+        html += `</table>`;
+        $("adminUsers").innerHTML = html;
+      } catch (err) {
+        $("adminUsers").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+
+    window.grantPremium = async function (userId) {
+      try {
+        const res = await apiFetch(`/admin/users/${userId}/grant`, {
+          method: "POST",
+          body: JSON.stringify({ days: 30 })
+        });
+        $("adminStatus").innerHTML = `<div class="msg success">Granted 30 days to ${escapeHTML(res.email)}</div>`;
+        $("adminLoadUsersBtn").click();
+      } catch (err) {
+        $("adminStatus").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    };
+
+    $("adminLoadPaymentsBtn").addEventListener("click", async function () {
+      try {
+        const payments = await apiFetch("/admin/payments", { method: "GET" });
+        let html = `<h3>Payments (${payments.length})</h3><table style="width:100%; font-size:13px; border-collapse:collapse;"><tr><th style="text-align:left; padding:4px;">ID</th><th style="text-align:left; padding:4px;">User</th><th style="text-align:right; padding:4px;">Amount</th><th style="text-align:left; padding:4px;">Status</th><th style="text-align:left; padding:4px;">Granted</th></tr>`;
+        
+        payments.forEach(function (p) {
+          html += `<tr>
+            <td style="padding:4px;">${escapeHTML(p.id)}</td>
+            <td style="padding:4px;">${escapeHTML(p.user_id)}</td>
+            <td style="text-align:right; padding:4px;">${escapeHTML(p.amount)} ${escapeHTML(p.currency)}</td>
+            <td style="padding:4px;">${escapeHTML(p.status)}</td>
+            <td style="padding:4px;">${p.premium_granted ? "Yes" : "No"}</td>
+          </tr>`;
+        });
+        html += `</table>`;
+        $("adminPayments").innerHTML = html;
+      } catch (err) {
+        $("adminPayments").innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    });
+       init();
+    checkPaymentRedirect();
+    setTimeout(loadAdminPanel, 500); init();
+    checkPaymentRedirect();
+  </script>
+  <script>
+  function hybridPickCard(p) {
+    const kickoff = p.kickoff ? new Date(p.kickoff).toLocaleString() : "";
+
+    let html = `<div class="card" style="margin:10px 0;">`;
+
+    html += `
+      <div style="display:flex; justify-content:space-between; gap:10px;">
+        <div>
+          <strong>${escapeHTML(p.home_team)} vs ${escapeHTML(p.away_team)}</strong>
+          <div class="muted">${escapeHTML(p.league || "")}</div>
+        </div>
+        <div class="muted" style="text-align:right;">
+          ${escapeHTML(kickoff)}<br />
+          Status: ${escapeHTML(p.status || "")}
+        </div>
+      </div>
+    `;
+
+    if (p.locked) {
+      html += `
+        <div class="warn" style="margin-top:10px;">
+          ${escapeHTML(p.market_label)} pick locked. Upgrade to view.
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="margin-top:10px;">
+          <strong>${escapeHTML(p.market_label)}:</strong>
+          ${escapeHTML(p.pick)}
+          <span class="badge confidence">
+            ${escapeHTML(p.confidence_label)} ${escapeHTML(p.confidence_score)}/100
+          </span>
+          <span class="muted">Prob: ${pct(p.probability)}</span>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+
+    return html;
+  }
+
+  function renderPicks(data) {
+    const picksEl = $("picks");
+
+    if (!data) {
+      picksEl.innerHTML = "";
+      return;
+    }
+
+    const safe = data.safe_picks || [];
+    const bonus = data.bonus_picks || [];
+
+    if (!safe.length && !bonus.length) {
+      picksEl.innerHTML = "<div class='muted'>No picks available. Run sync_sports.py or check your API key.</div>";
+      return;
+    }
+
+    let html = "";
+
+    if (safe.length) {
+      html += `<h3>Safe Picks</h3>`;
+
+      safe.forEach(function (pick) {
+        html += hybridPickCard(pick);
+      });
+    }
+
+    if (bonus.length) {
+      html += `<h3 style="margin-top:14px;">High-Risk Bonus Picks</h3>`;
+
+      bonus.forEach(function (pick) {
+        html += hybridPickCard(pick);
+      });
+    }
+
+    picksEl.innerHTML = html;
+  }
+
+  if (localStorage.getItem("token")) {
+    loadPicks();
+  }
+</script>
+<script>
+  function isPremiumUser() {
+    try {
+      const savedUser = localStorage.getItem("user");
+
+      if (!savedUser) {
+        return false;
+      }
+
+      const user = JSON.parse(savedUser);
+
+      return user.is_premium === true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  async function loadPerformance() {
+    const el = document.getElementById("performance");
+
+    if (!el) {
+      return;
+    }
+
+    if (!localStorage.getItem("token")) {
+      el.innerHTML = "Login to load performance.";
+      return;
+    }
+
+    el.innerHTML = '<div class="muted">Loading performance...</div>';
+
+    try {
+      const data = await apiFetch("/performance/summary", {
+        method: "GET"
+      });
+
+      renderPerformance(data);
+    } catch (err) {
+      el.innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+    }
+  }
+
+  function statsTable(stats) {
+    const visible = (stats || []).filter(function (item) {
+      return item.total_settled > 0;
+    });
+
+    if (!visible.length) {
+      return '<div class="muted">No settled market data yet.</div>';
+    }
+
+    let html = `
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+          <tr>
+            <th style="text-align:left; padding:6px;">Market</th>
+            <th style="text-align:right; padding:6px;">Wins</th>
+            <th style="text-align:right; padding:6px;">Losses</th>
+            <th style="text-align:right; padding:6px;">Voids</th>
+            <th style="text-align:right; padding:6px;">Hit Rate</th>
+          </tr>
+    `;
+
+    visible.forEach(function (item) {
+      html += `
+        <tr>
+          <td style="padding:6px;">${escapeHTML(item.market_label)}</td>
+          <td style="text-align:right; padding:6px;">${escapeHTML(item.wins)}</td>
+          <td style="text-align:right; padding:6px;">${escapeHTML(item.losses)}</td>
+          <td style="text-align:right; padding:6px;">${escapeHTML(item.voids)}</td>
+          <td style="text-align:right; padding:6px;">${escapeHTML(item.hit_rate)}%</td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  function renderPerformance(data) {
+    const el = document.getElementById("performance");
+
+    if (!el) {
+      return;
+    }
+
+    if (!data) {
+      el.innerHTML = "";
+      return;
+    }
+
+    if (!data.total_settled || data.total_settled === 0) {
+      el.innerHTML = '<div class="muted">No settled predictions yet. Run settlement after matches finish.</div>';
+      return;
+    }
+
+    let html = `
+      <div class="card" style="margin:10px 0;">
+        <strong>Overall</strong>
+        <div class="muted">
+          Settled: ${escapeHTML(data.total_settled)} |
+          Wins: ${escapeHTML(data.wins)} |
+          Losses: ${escapeHTML(data.losses)} |
+          Voids: ${escapeHTML(data.voids)} |
+          Hit Rate: ${escapeHTML(data.overall_hit_rate)}%
+        </div>
+      </div>
+
+      <div class="card" style="margin:10px 0;">
+        <strong>Safe Markets</strong>
+        ${statsTable(data.safe_markets)}
+      </div>
+    `;
+
+    if (isPremiumUser()) {
+      html += `
+        <div class="card" style="margin:10px 0;">
+          <strong>Bonus Markets</strong>
+          ${statsTable(data.bonus_markets)}
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="warn" style="margin-top:10px;">
+          Bonus market performance is for premium users.
+        </div>
+      `;
+    }
+
+    el.innerHTML = html;
+  }
+
+  if (typeof updateUI === "function") {
+    const baseUpdateUI = updateUI;
+
+    updateUI = function () {
+      baseUpdateUI();
+
+      if (localStorage.getItem("token")) {
+        loadPerformance();
+      }
+    };
+  }
+
+  const refreshPerformanceBtn = document.getElementById("refreshPerformanceBtn");
+
+  if (refreshPerformanceBtn) {
+    refreshPerformanceBtn.addEventListener("click", function () {
+      loadPerformance();
+    });
+  }
+
+  if (localStorage.getItem("token")) {
+    loadPerformance();
+  }
+      function showLegal(type) {
+      const modal = $("legalModal");
+      const content = $("legalContent");
+      let html = "";
+      
+      if (type === "terms") {
+        html = `<h2>Terms of Service</h2>
+        <p>By using this platform, you agree that all predictions, statistical analysis, and models provided are for informational and entertainment purposes only.</p>
+        <p>We do not guarantee any financial returns, betting outcomes, or profits. Sports prediction involves inherent variance and risk. You are solely responsible for any betting decisions you make based on our data.</p>
+        <p>We reserve the right to suspend accounts that abuse the platform, attempt fraudulent payments, or violate these terms.</p>`;
+      } else if (type === "privacy") {
+        html = `<h2>Privacy Policy</h2>
+        <p>We respect your privacy. We collect your email address and subscription status strictly to provide and manage our premium services.</p>
+        <p>All payment processing is handled securely by our third-party payment partner (Flutterwave). We do not store your credit card details, bank account numbers, or sensitive financial credentials on our servers.</p>
+        <p>We will never sell your personal data to third parties.</p>`;
+      } else if (type === "refund") {
+        html = `<h2>Refund Policy</h2>
+        <p>Due to the digital and immediate nature of our sports analytics and premium predictions, <strong>all subscription payments are strictly non-refundable</strong>.</p>
+        <p>Sports betting is high-variance. A losing streak does not qualify for a refund. We strongly advise reviewing our public performance history and free picks before purchasing a premium subscription.</p>
+        <p>If a technical error prevents you from accessing premium content after a successful payment, contact support immediately for manual resolution.</p>`;
+      } else if (type === "disclaimer") {
+        html = `<h2>Responsible Gambling & Disclaimer</h2>
+        <p>You must be 18 years or older to use this service.</p>
+        <p>Past performance, historical hit rates, and model probabilities do not guarantee future results. Correct Score and HT/FT markets carry extremely high variance.</p>
+        <p>Never bet with money you cannot afford to lose. Do not chase losses. If you or someone you know has a gambling problem, please seek professional help and contact local responsible gambling support services.</p>`;
+      }
+      
+      content.innerHTML = html;
+      modal.style.display = "block";
+    }
+    window.showLegal = showLegal;
+</script>
+</body>
+</html>

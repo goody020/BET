@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic[email]
+argon2-cffi
+PyJWT
+python-dotenv
+requests
+apscheduler
+psycopg2-binary

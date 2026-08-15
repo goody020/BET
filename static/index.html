@@ -702,9 +702,11 @@
       }
     }
 
-    function hybridPickCard(p) {
+        function hybridPickCard(p) {
       const kickoff = p.kickoff ? new Date(p.kickoff).toLocaleString() : "";
+
       let html = `<div class="card" style="margin:10px 0;">`;
+
       html += `
         <div style="display:flex; justify-content:space-between; gap:10px;">
           <div>
@@ -719,7 +721,11 @@
       `;
 
       if (p.locked) {
-        html += `<div class="warn" style="margin-top:10px;">${escapeHTML(p.market_label)} pick locked. Upgrade to view.</div>`;
+        html += `
+          <div class="warn" style="margin-top:10px;">
+            🔒 Premium Pick Locked. Upgrade to view market, probability, and confidence.
+          </div>
+        `;
       } else {
         html += `
           <div style="margin-top:10px;">
@@ -733,10 +739,11 @@
           </div>
         `;
       }
+
       html += `</div>`;
+
       return html;
     }
-
     function renderPicks(data) {
       const picksEl = $("picks");
       if (!data) return;

@@ -67,15 +67,22 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
             OddsInsight.is_value_bet == True
         ).first()
     except Exception:
-        pass # Failsafe if OddsInsight table doesn't exist yet
+        pass
 
     return {
-        "prediction_id": pred.id, "fixture_id": fixture.id,
-        "league": fixture.league, "home_team": fixture.home_team, "away_team": fixture.away_team,
-        "kickoff": format_kickoff(fixture.kickoff), "status": fixture.status,
-        "market": pred.market, "market_label": SAFE_MARKET_LABELS.get(pred.market, pred.market),
-        "pick": pred.pick, "probability": pred.probability,
-        "confidence_score": pred.confidence_score, "confidence_label": pred.confidence_label,
+        "prediction_id": pred.id,
+        "fixture_id": fixture.id,
+        "league": fixture.league,
+        "home_team": fixture.home_team,
+        "away_team": fixture.away_team,
+        "kickoff": format_kickoff(fixture.kickoff),
+        "status": fixture.status,
+        "market": pred.market,
+        "market_label": SAFE_MARKET_LABELS.get(pred.market, pred.market),
+        "pick": pred.pick,
+        "probability": pred.probability,
+        "confidence_score": pred.confidence_score,
+        "confidence_label": pred.confidence_label,
         "locked": locked,
         "is_value_bet": bool(insight),
         "market_edge": round(insight.value_edge * 100, 1) if insight else 0

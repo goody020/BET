@@ -278,7 +278,13 @@
           Login to load picks.
         </div>
       </div>
-
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">Recent Wins</h2>
+          <button id="refreshHistoryBtn" class="btn small" type="button">Refresh</button>
+        </div>
+        <div id="history" class="muted">Loading recent wins...</div>
+      </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <h2 style="margin:0;">Performance</h2>
@@ -964,9 +970,46 @@
         updateUI();
       }
     }
+    async function loadHistory() {
+      const historyEl = $("history");
+      if (!historyEl) return;
 
+      try {
+        const data = await apiFetch("/history/wins", { method: "GET" });
+        
+        if (!data.length) {
+          historyEl.innerHTML = '<div class="muted">No settled wins yet. Check back after matches finish.</div>';
+          return;
+        }
+
+        let html = `<table style="width:100%; font-size:13px; border-collapse:collapse;">
+          <tr>
+            <th style="text-align:left; padding:6px;">Date</th>
+            <th style="text-align:left; padding:6px;">Match</th>
+            <th style="text-align:left; padding:6px;">Market</th>
+            <th style="text-align:right; padding:6px;">Status</th>
+          </tr>`;
+
+        data.forEach(function (w) {
+          const date = w.date ? new Date(w.date).toLocaleDateString() : "-";
+          html += `<tr>
+            <td style="padding:6px;">${escapeHTML(date)}</td>
+            <td style="padding:6px;">${escapeHTML(w.home_team)} vs ${escapeHTML(w.away_team)}</td>
+            <td style="padding:6px;">${escapeHTML(w.pick)}</td>
+            <td style="text-align:right; padding:6px; color:#4ade80; font-weight:bold;">WON</td>
+          </tr>`;
+        });
+        html += `</table>`;
+        historyEl.innerHTML = html;
+      } catch (err) {
+        historyEl.innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    }
+
+    $("refreshHistoryBtn").addEventListener("click", loadHistory);
     init();
     checkPaymentRedirect();
+    setTimeout(loadHistory, 500);
   </script>
 </body>
 </html>

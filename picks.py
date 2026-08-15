@@ -16,11 +16,12 @@ SAFE_MARKET_LABELS = {
     "DC_1X": "Home or Draw", "DC_X2": "Away or Draw", "DC_12": "Any Team To Win",
     "HOME_DNB": "Home Draw No Bet", "AWAY_DNB": "Away Draw No Bet",
     "CS": "Correct Score", "HTFT": "HT/FT",
+    "HOME_MULTI": "Home Multiscore", "AWAY_MULTI": "Away Multiscore", "DRAW_MULTI": "Draw Multiscore",
 }
-
 PREMIUM_SAFE_MARKETS = {
     "OVER_15", "OVER_25", "UNDER_35", "BTTS_NO",
     "DC_1X", "DC_X2", "DC_12", "HOME_DNB", "AWAY_DNB",
+    "HOME_MULTI", "AWAY_MULTI", "DRAW_MULTI",
 }
 
 def format_kickoff(dt):

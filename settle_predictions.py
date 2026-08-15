@@ -96,7 +96,17 @@ def settle_prediction(pred: Prediction, fixture: Fixture):
     if market == "CS":
         expected = f"{home_goals}-{away_goals}"
         return "won" if pred.pick == expected else "lost"
+    if market == "HOME_MULTI":
+        valid_scores = [(2, 0), (2, 1), (3, 0), (3, 1)]
+        return "won" if (home_goals, away_goals) in valid_scores else "lost"
 
+    if market == "AWAY_MULTI":
+        valid_scores = [(0, 2), (1, 2), (0, 3), (1, 3)]
+        return "won" if (home_goals, away_goals) in valid_scores else "lost"
+
+    if market == "DRAW_MULTI":
+        valid_scores = [(1, 1), (2, 2)]
+        return "won" if (home_goals, away_goals) in valid_scores else "lost"
     if market == "HTFT":
         ht_home = fixture.ht_home_goals
         ht_away = fixture.ht_away_goals

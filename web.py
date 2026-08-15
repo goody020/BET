@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-
+from history import router as history_router
 from app import app as api_app, engine, Base
 from flutterwave import router as flutterwave_router
 from picks import router as picks_router
@@ -19,7 +19,7 @@ api_app.include_router(flutterwave_router)
 api_app.include_router(picks_router)
 api_app.include_router(performance_router)
 api_app.include_router(admin_router)
-
+api_app.include_router(history_router)
 Base.metadata.create_all(bind=engine)
 
 

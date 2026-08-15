@@ -453,61 +453,35 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
     p00 = scores.get((0, 0), 0.0)
 
     over_05 = clamp_prob(1.0 - p00)
+    over_15 = clamp_prob(1.0 - p00 - scores.get((1, 0), 0.0) - scores.get((0, 1), 0.0))
+    over_25 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a >= 3))
+    
+    under_35 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a <= 3))
+    under_45 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a <= 4))
 
-    over_15 = clamp_prob(
-        1.0
-        - p00
-        - scores.get((1, 0), 0.0)
-        - scores.get((0, 1), 0.0)
-    )
-
-    over_25 = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h + a >= 3)
-    )
-
-    under_35 = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h + a <= 3)
-    )
-
-    under_45 = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h + a <= 4)
-    )
-
-    btts_yes = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h > 0 and a > 0)
-    )
-
+    btts_yes = clamp_prob(sum(p for (h, a), p in scores.items() if h > 0 and a > 0))
     btts_no = clamp_prob(1.0 - btts_yes)
 
-    home_win = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h > a)
-    )
-
-    draw = clamp_prob(
-        sum(p for (h, a), p in scores.items() if h == a)
-    )
-
-    away_win = clamp_prob(
-        sum(p for (h, a), p in scores.items() if a > h)
-    )
+    home_win = clamp_prob(sum(p for (h, a), p in scores.items() if h > a))
+    draw = clamp_prob(sum(p for (h, a), p in scores.items() if h == a))
+    away_win = clamp_prob(sum(p for (h, a), p in scores.items() if a > h))
 
     dc_1x = clamp_prob(home_win + draw)
     dc_x2 = clamp_prob(away_win + draw)
     dc_12 = clamp_prob(home_win + away_win)
 
     no_draw_denominator = home_win + away_win
+    home_dnb = clamp_prob(home_win / no_draw_denominator if no_draw_denominator > 0 else 0.0)
+    away_dnb = clamp_prob(away_win / no_draw_denominator if no_draw_denominator > 0 else 0.0)
 
-    home_dnb = clamp_prob(
-        home_win / no_draw_denominator
-        if no_draw_denominator > 0
-        else 0.0
-    )
+    # HIGH ODDS MULTISCORE MARKETS
+    home_multi_scores = [(2, 0), (2, 1), (3, 0), (3, 1)]
+    away_multi_scores = [(0, 2), (1, 2), (0, 3), (1, 3)]
+    draw_multi_scores = [(1, 1), (2, 2)]
 
-    away_dnb = clamp_prob(
-        away_win / no_draw_denominator
-        if no_draw_denominator > 0
-        else 0.0
-    )
+    home_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in home_multi_scores))
+    away_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in away_multi_scores))
+    draw_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in draw_multi_scores))
 
     return [
         ("OVER_05", "Over 0.5 Goals", over_05),
@@ -522,8 +496,11 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
         ("DC_12", f"{home_team} or {away_team}", dc_12),
         ("HOME_DNB", f"{home_team} Draw No Bet", home_dnb),
         ("AWAY_DNB", f"{away_team} Draw No Bet", away_dnb),
+        # NEW HIGH ODDS MARKETS
+        ("HOME_MULTI", f"{home_team} Multiscore (2-0, 2-1, 3-0, 3-1)", home_multi_prob),
+        ("AWAY_MULTI", f"{away_team} Multiscore (0-2, 1-2, 0-3, 1-3)", away_multi_prob),
+        ("DRAW_MULTI", "Draw Multiscore (1-1, 2-2)", draw_multi_prob),
     ]
-
 
 def generate_predictions_for_fixture(
     db: Session,

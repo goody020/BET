@@ -468,3 +468,4 @@ def predict(req: PredictRequest, user: User = Depends(get_current_user)):
             ],
         },
     }
+Base.metadata.create_all(bind=engine)

@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean
-from datetime import datetime, timezone
-from app import Base
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
+
+# IF THIS ERRORS, CHANGE 'database' TO 'app' (e.g., from app import Base)
+from database import Base  
 
 
 class Fixture(Base):
@@ -8,38 +10,36 @@ class Fixture(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     api_fixture_id = Column(Integer, unique=True, index=True)
-    
-    league = Column(String(255))
-    home_team = Column(String(255))
-    away_team = Column(String(255))
-    
-    kickoff = Column(DateTime)
-    status = Column(String(50), default="NS") # NS = Not Started
-    
-    home_goals = Column(Integer, nullable=True)
-    away_goals = Column(Integer, nullable=True)
-    
-    ht_home_goals = Column(Integer, nullable=True)
-    ht_away_goals = Column(Integer, nullable=True)
+    league = Column(String(200), index=True)
+    home_team = Column(String(200))
+    away_team = Column(String(200))
+    home_team_id = Column(Integer)
+    away_team_id = Column(Integer)
+    kickoff = Column(DateTime, index=True)
+    status = Column(String(20), index=True)
+    home_goals = Column(Integer)
+    away_goals = Column(Integer)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    predictions = relationship("Prediction", back_populates="fixture")
 
 
 class Prediction(Base):
     __tablename__ = "predictions"
 
     id = Column(Integer, primary_key=True, index=True)
-    fixture_id = Column(Integer, ForeignKey("fixtures.id"))
-    
-    market = Column(String(50)) # "CS" or "HTFT"
-    pick = Column(String(255))    
+    fixture_id = Column(Integer, ForeignKey("fixtures.id"), index=True)
+    market = Column(String(50), index=True)
+    pick = Column(String(100))
     probability = Column(Float)
     confidence_score = Column(Integer)
-    confidence_label = Column(String(50))
-    
-    status = Column(String(50), default="pending") # pending, won, lost, void
-    
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    confidence_label = Column(String(20))
+    status = Column(String(20), default="pending", index=True)
+    settled_at = Column(DateTime)
+    created_at = Column(DateTime)
+
+    fixture = relationship("Fixture", back_populates="predictions")
 
 
 class OddsInsight(Base):
@@ -47,15 +47,22 @@ class OddsInsight(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     fixture_id = Column(Integer, ForeignKey("fixtures.id"))
-    
-    market = Column(String(50))          # e.g., OVER_25, DC_1X
-    bookmaker_odds = Column(Float)       # Average decimal odds
-    market_prob = Column(Float)          # True probability after removing bookie margin
-    model_prob = Column(Float)           # Our Poisson model probability
-    value_edge = Column(Float)           # model_prob - market_prob
+    market = Column(String(50))
+    bookmaker_odds = Column(Float)
+    market_prob = Column(Float)
+    model_prob = Column(Float)
+    value_edge = Column(Float)
     is_value_bet = Column(Boolean, default=False)
+    created_at = Column(DateTime)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class RatingsCache(Base):
+    __tablename__ = "ratings_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cache_key = Column(String(100), unique=True, index=True)
+    updated = Column(String(20))
+    teams_json = Column(Text)
 
 
 class AutomationState(Base):

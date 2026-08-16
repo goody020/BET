@@ -12,7 +12,7 @@ from admin import router as admin_router
 
 import sports_models
 
-from automation import start_scheduler, stop_scheduler
+from automation import start_scheduler, stop_scheduler, maybe_run_automation
 
 
 api_app.include_router(flutterwave_router)
@@ -46,11 +46,13 @@ def on_shutdown():
 
 @web.get("/")
 def root():
+    maybe_run_automation()
     return RedirectResponse(url="/app")
 
 
 @web.get("/app", response_class=HTMLResponse)
 def app_page():
+    maybe_run_automation()
     index_file = STATIC_DIR / "index.html"
 
     if not index_file.exists():

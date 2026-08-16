@@ -1,7 +1,7 @@
 import os
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -47,26 +47,39 @@ scheduler = BackgroundScheduler()
 
 
 def load_state():
-    if not STATE_FILE.exists():
-        return {}
+    from sports_models import AutomationState
 
+    db = SessionLocal()
     try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        state = {}
+        for row in db.query(AutomationState).all():
+            state[row.state_key] = row.state_value
+        return state
     except Exception:
         return {}
-
-
-def save_state(state):
-    STATE_FILE.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    finally:
+        db.close()
 
 
 def update_state(key):
-    state = load_state()
-    state[key] = datetime.now(timezone.utc).isoformat()
-    save_state(state)
+    from sports_models import AutomationState
+
+    db = SessionLocal()
+    try:
+        row = db.query(AutomationState).filter(
+            AutomationState.state_key == key
+        ).first()
+
+        value = datetime.now(timezone.utc).isoformat()
+
+        if not row:
+            db.add(AutomationState(state_key=key, state_value=value))
+        else:
+            row.state_value = value
+
+        db.commit()
+    finally:
+        db.close()
 
 
 def run_sync():
@@ -192,3 +205,43 @@ def stop_scheduler():
     if scheduler.running:
         scheduler.shutdown(wait=False)
         print("Automation stopped.")
+
+
+    _last_auto_check = {"time": None}
+
+
+def maybe_run_automation():
+    now = datetime.now(timezone.utc)
+
+    if _last_auto_check["time"] and (now - _last_auto_check["time"]) < timedelta(minutes=10):
+        return
+
+    _last_auto_check["time"] = now
+
+    state = load_state()
+
+    def is_stale(value, hours):
+        if not value:
+            return True
+        try:
+            then = datetime.fromisoformat(value)
+        except Exception:
+            return True
+        return (now - then) > timedelta(hours=hours)
+
+    jobs = []
+
+    if is_stale(state.get("last_settlement"), 12):
+        jobs.append(run_settlement)
+
+    if is_stale(state.get("last_sync"), 20):
+        jobs.append(run_sync)
+
+    if not jobs:
+        return
+
+    def runner():
+        for job in jobs:
+            job()
+
+    threading.Thread(target=runner, daemon=True).start()

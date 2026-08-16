@@ -55,4 +55,12 @@ class OddsInsight(Base):
     value_edge = Column(Float)           # model_prob - market_prob
     is_value_bet = Column(Boolean, default=False)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))   
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AutomationState(Base):
+    __tablename__ = "automation_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    state_key = Column(String(50), unique=True, index=True)
+    state_value = Column(String(100))

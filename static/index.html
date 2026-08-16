@@ -285,6 +285,13 @@
         </div>
         <div id="history" class="muted">Loading recent wins...</div>
       </div>
+            <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">Recent Results</h2>
+          <button id="refreshResultsBtn" class="btn small" type="button">Refresh</button>
+        </div>
+        <div id="results" class="muted">Loading results...</div>
+      </div>
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <h2 style="margin:0;">Performance</h2>
@@ -1007,9 +1014,51 @@
     }
 
     $("refreshHistoryBtn").addEventListener("click", loadHistory);
+        async function loadResults() {
+      const el = $("results");
+      if (!el) return;
+
+      try {
+        const data = await apiFetch("/history/results", { method: "GET" });
+
+        if (!data.length) {
+          el.innerHTML = '<div class="muted">No settled results yet. Results appear automatically after matches finish.</div>';
+          return;
+        }
+
+        let html = `<table style="width:100%; font-size:13px; border-collapse:collapse;">
+          <tr>
+            <th style="text-align:left; padding:6px;">Date</th>
+            <th style="text-align:left; padding:6px;">Match</th>
+            <th style="text-align:left; padding:6px;">Pick</th>
+            <th style="text-align:right; padding:6px;">Score</th>
+            <th style="text-align:right; padding:6px;">Result</th>
+          </tr>`;
+
+        data.forEach(function (r) {
+          const date = r.date ? new Date(r.date).toLocaleDateString() : "-";
+          const color = r.status === "won" ? "#4ade80" : "#f87171";
+          html += `<tr>
+            <td style="padding:6px;">${escapeHTML(date)}</td>
+            <td style="padding:6px;">${escapeHTML(r.home_team)} vs ${escapeHTML(r.away_team)}</td>
+            <td style="padding:6px;">${escapeHTML(r.pick)}</td>
+            <td style="text-align:right; padding:6px;">${escapeHTML(r.score)}</td>
+            <td style="text-align:right; padding:6px; color:${color}; font-weight:bold;">${escapeHTML(r.status.toUpperCase())}</td>
+          </tr>`;
+        });
+
+        html += `</table>`;
+        el.innerHTML = html;
+      } catch (err) {
+        el.innerHTML = `<div class="msg error">${escapeHTML(err.message)}</div>`;
+      }
+    }
+
+    $("refreshResultsBtn").addEventListener("click", loadResults);
     init();
     checkPaymentRedirect();
     setTimeout(loadHistory, 500);
+        setTimeout(loadResults, 600);
   </script>
 </body>
 </html>

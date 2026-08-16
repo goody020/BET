@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -30,13 +30,17 @@ def format_kickoff(dt):
     return dt.isoformat()
 
 def base_safe_query(db: Session):
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+
     return db.query(Prediction, Fixture).join(
-        Fixture, Prediction.fixture_id == Fixture.id,
+        Fixture,
+        Prediction.fixture_id == Fixture.id,
     ).filter(
         Fixture.status.in_(UPCOMING_STATUSES),
         Prediction.market.in_(PREMIUM_SAFE_MARKETS),
         Prediction.status == "pending",
         Prediction.confidence_score >= 60,
+        Fixture.kickoff >= cutoff,
     )
 
 def apply_exclusion(query, prediction_ids):
@@ -108,12 +112,23 @@ def fetch_safe_picks(db: Session, limit: int = 7):
     return selected[:limit]
 
 def fetch_bonus(db: Session, market: str, limit: int = 2):
-    rows = db.query(Prediction, Fixture).join(Fixture, Prediction.fixture_id == Fixture.id).filter(
-        Fixture.status.in_(UPCOMING_STATUSES), Prediction.market == market,
-        Prediction.status == "pending", Prediction.confidence_score >= 55,
-    ).order_by(Prediction.confidence_score.desc(), Prediction.probability.desc()).limit(40).all()
-    return merge_selected([], rows, limit, max_per_fixture=1)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
 
+    rows = db.query(Prediction, Fixture).join(
+        Fixture,
+        Prediction.fixture_id == Fixture.id,
+    ).filter(
+        Fixture.status.in_(UPCOMING_STATUSES),
+        Prediction.market == market,
+        Prediction.status == "pending",
+        Prediction.confidence_score >= 55,
+        Fixture.kickoff >= cutoff,
+    ).order_by(
+        Prediction.confidence_score.desc(),
+        Prediction.probability.desc(),
+    ).limit(40).all()
+
+    return merge_selected([], rows, limit, max_per_fixture=1)
 @router.get("/today")
 def picks_today(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     premium_safe_rows = fetch_safe_picks(db, limit=7)

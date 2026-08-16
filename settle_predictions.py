@@ -180,6 +180,8 @@ def update_fixtures_from_api(db: Session):
         today,
         today - timedelta(days=1),
         today - timedelta(days=2),
+        today - timedelta(days=3),
+        today - timedelta(days=4),
     ]
 
     updated_count = 0

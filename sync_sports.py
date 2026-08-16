@@ -1,63 +1,39 @@
 import os
-import time
 import re
 import json
+import math
+import time
 import requests
-from pathlib import Path
-from datetime import date, datetime, timezone, timedelta
-from sqlalchemy.orm import Session
-from dotenv import load_dotenv
+from datetime import date, datetime, timedelta, timezone
 
-from app import SessionLocal, engine, Base, score_matrix, ht_ft, confidence_label
+from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+
+from app import SessionLocal
 from sports_models import Fixture, Prediction
 
 
 load_dotenv()
 
 API_KEY = os.getenv("API_FOOTBALL_KEY", "").strip()
-
-try:
-    MAX_STANDINGS_REQUESTS = int(os.getenv("MAX_STANDINGS_REQUESTS", "45"))
-except Exception:
-    MAX_STANDINGS_REQUESTS = 45
-
 API_FIXTURES_URL = "https://v3.football.api-sports.io/fixtures"
 API_STANDINGS_URL = "https://v3.football.api-sports.io/standings"
+
+try:
+    MAX_STANDINGS_REQUESTS = int(os.getenv("MAX_STANDINGS_REQUESTS", "25"))
+except Exception:
+    MAX_STANDINGS_REQUESTS = 25
+
 try:
     FREE_PLAN_MAX_SEASON = int(os.getenv("FREE_PLAN_MAX_SEASON", "2024"))
 except Exception:
     FREE_PLAN_MAX_SEASON = 2024
-CACHE_FILE = Path(__file__).resolve().parent / "ratings_cache.json"
+
 try:
     RATINGS_CACHE_DAYS = int(os.getenv("RATINGS_CACHE_DAYS", "3"))
 except Exception:
     RATINGS_CACHE_DAYS = 3
 
-PRIORITY_LEAGUE_KEYWORDS = {
-    "premier league",
-    "la liga",
-    "serie a",
-    "bundesliga",
-    "ligue 1",
-    "uefa champions league",
-    "uefa europa league",
-    "uefa europa conference league",
-    "uefa conference league",
-    "championship",
-}
-PREDICTABLE_STATUSES = {
-    "NS",
-    "TBD",
-    "NOT_STARTED",
-    "",
-}
-
-BLOCKED_LEAGUE_KEYWORDS = {
-    "friendly",
-    "friendlies",
-    "club friendly",
-    "national team friendly",
-}
 
 BLOCKED_LEAGUE_KEYWORDS = {
     "friendly",
@@ -85,21 +61,48 @@ BLOCKED_TEAM_TOKENS = {
     "ii",
     "iii",
     "iv",
-    "women"
 }
 
 YOUTH_PATTERN = re.compile(r"\bu\d{1,2}\b")
+
+PRIORITY_LEAGUE_KEYWORDS = {
+    "premier league",
+    "la liga",
+    "serie a",
+    "bundesliga",
+    "ligue 1",
+    "uefa champions league",
+    "uefa europa league",
+    "uefa europa conference league",
+    "uefa conference league",
+    "championship",
+}
+
+QUALITY_LEAGUE_KEYWORDS = {
+    "premier league", "la liga", "serie a", "bundesliga", "ligue 1",
+    "championship", "league one", "league two", "eredivisie",
+    "primeira liga", "liga portugal", "segunda", "la liga 2",
+    "champions league", "europa league", "conference league",
+    "mls", "brasileiro", "brazil", "argentina", "liga profesional",
+    "super lig", "süper lig", "scotland", "premiership",
+    "belgium", "jupiler", "denmark", "norway", "sweden", "allsvenskan",
+    "austria", "switzerland", "greece", "croatia", "czech",
+    "russia", "ukraine", "poland", "saudi", "egypt", "morocco",
+    "south africa", "japan", "j1", "j2", "k league", "a-league",
+    "mexico", "liga mx", "colombia", "chile", "ecuador",
+    "serie b", "2. bundesliga", "ligue 2",
+}
+
+PREDICTABLE_STATUSES = {"NS", "TBD", "NOT_STARTED", ""}
+
+LEAGUE_AVG_GOALS = 1.35
+
+
+# ---------------------------------------------------------------- helpers
 def normalize_league(name):
     return (name or "").strip().lower()
 
-def is_priority_league(league_name):
-    normalized = normalize_league(league_name)
 
-    for keyword in PRIORITY_LEAGUE_KEYWORDS:
-        if keyword in normalized:
-            return True
-
-    return False
 def is_blocked_text(name):
     if not name:
         return False
@@ -121,6 +124,8 @@ def is_blocked_text(name):
         return True
 
     return False
+
+
 def is_blocked_league(league_name):
     normalized = normalize_league(league_name)
 
@@ -131,42 +136,113 @@ def is_blocked_league(league_name):
     return is_blocked_text(league_name)
 
 
-def parse_api_date(date_str: str):
+def is_priority_league(league_name):
+    normalized = normalize_league(league_name)
+
+    for keyword in PRIORITY_LEAGUE_KEYWORDS:
+        if keyword in normalized:
+            return True
+
+    return False
+
+
+def is_quality_league(league_name):
+    normalized = normalize_league(league_name)
+
+    for keyword in QUALITY_LEAGUE_KEYWORDS:
+        if keyword in normalized:
+            return True
+
+    return False
+
+
+def clamp_prob(value):
+    return max(0.0, min(1.0, value))
+
+
+def clamp_xg(value):
+    return max(0.2, min(3.5, value))
+
+
+def parse_kickoff(value):
+    if not value:
+        return None
+
     try:
-        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
     except Exception:
-        return datetime.now(timezone.utc)
+        return None
 
 
-def api_headers():
-    return {
-        "x-apisports-key": API_KEY,
-    }
+def filter_columns(model, kwargs):
+    cols = model.__table__.columns.keys()
+    return {k: v for k, v in kwargs.items() if k in cols}
 
 
-def clamp_prob(value: float) -> float:
-    return max(0.0, min(1.0, float(value)))
+def make_fixture(**kwargs):
+    return Fixture(**filter_columns(Fixture, kwargs))
 
 
-def clamp_xg(value: float) -> float:
-    return max(0.30, min(3.50, float(value)))
+def make_prediction(**kwargs):
+    return Prediction(**filter_columns(Prediction, kwargs))
 
 
-def load_ratings_cache():
-    if not CACHE_FILE.exists():
-        return {}
+# ---------------------------------------------------------------- ratings cache (database)
+def load_ratings_cache(db: Session):
+    from sports_models import RatingsCache
+
+    cache = {}
 
     try:
-        return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+        rows = db.query(RatingsCache).all()
     except Exception:
-        return {}
+        return cache
+
+    for row in rows:
+        try:
+            teams_raw = json.loads(row.teams_json or "{}")
+        except Exception:
+            continue
+
+        teams = {}
+        for k, v in teams_raw.items():
+            try:
+                teams[int(k)] = v
+            except Exception:
+                continue
+
+        cache[row.cache_key] = {
+            "updated": row.updated,
+            "teams": teams,
+        }
+
+    return cache
 
 
-def save_ratings_cache(cache):
-    CACHE_FILE.write_text(
-        json.dumps(cache, ensure_ascii=False),
-        encoding="utf-8",
-    )
+def save_ratings_cache(db: Session, cache):
+    from sports_models import RatingsCache
+
+    for key, entry in cache.items():
+        row = db.query(RatingsCache).filter(
+            RatingsCache.cache_key == key
+        ).first()
+
+        teams_json = json.dumps(entry.get("teams", {}), ensure_ascii=False)
+
+        if not row:
+            db.add(RatingsCache(
+                cache_key=key,
+                updated=entry.get("updated"),
+                teams_json=teams_json,
+            ))
+        else:
+            row.updated = entry.get("updated")
+            row.teams_json = teams_json
+
+    db.commit()
 
 
 def cache_is_fresh(entry):
@@ -182,10 +258,18 @@ def cache_is_fresh(entry):
 
     age_days = (date.today() - updated_date).days
 
-    # Empty standings entries expire faster so we can retry them
     ttl_days = RATINGS_CACHE_DAYS if entry.get("teams") else 1
 
     return age_days <= ttl_days
+
+
+# ---------------------------------------------------------------- API calls
+def api_headers():
+    return {
+        "x-apisports-key": API_KEY,
+    }
+
+
 def fetch_fixtures_for_date(target_date: date):
     params = {
         "date": target_date.isoformat(),
@@ -213,95 +297,12 @@ def fetch_fixtures_for_date(target_date: date):
     return data.get("response", [])
 
 
-def seasons_for_standings(season):
-    try:
-        s = int(season)
-    except Exception:
-        return [
-            FREE_PLAN_MAX_SEASON,
-            FREE_PLAN_MAX_SEASON - 1,
-            FREE_PLAN_MAX_SEASON - 2,
-        ]
+def fetch_standings(league_id, season):
+    params = {
+        "league": league_id,
+        "season": season,
+    }
 
-    if s > FREE_PLAN_MAX_SEASON:
-        return [
-            FREE_PLAN_MAX_SEASON,
-            FREE_PLAN_MAX_SEASON - 1,
-            FREE_PLAN_MAX_SEASON - 2,
-        ]
-
-    if s == FREE_PLAN_MAX_SEASON:
-        return [
-            s,
-            s - 1,
-            s - 2,
-        ]
-
-    return [
-        s,
-        FREE_PLAN_MAX_SEASON,
-        s - 1,
-    ]
-
-
-def fetch_standings(league_id: int, season: int):
-    if not league_id:
-        return None
-
-    for try_season in seasons_for_standings(season):
-        params = {
-            "league": league_id,
-            "season": try_season,
-        }
-
-        try:
-            response = requests.get(
-                API_STANDINGS_URL,
-                headers=api_headers(),
-                params=params,
-                timeout=30,
-            )
-            data = response.json()
-        except Exception:
-            continue
-
-        if response.status_code == 200 and data.get("response"):
-            print(f"Standings loaded: league={league_id}, season={try_season}")
-            return data.get("response")
-
-    return None
-    attempts = []
-
-    if season:
-        attempts.append(
-            {
-                "league": league_id,
-                "season": season,
-            }
-        )
-
-    attempts.append(
-        {
-            "league": league_id,
-        }
-    )
-
-    for params in attempts:
-        try:
-            response = requests.get(
-                API_STANDINGS_URL,
-                headers=api_headers(),
-                params=params,
-                timeout=30,
-            )
-            data = response.json()
-        except Exception:
-            continue
-
-        if response.status_code == 200 and data.get("response"):
-            return data.get("response")
-
-    return None
     try:
         response = requests.get(
             API_STANDINGS_URL,
@@ -311,142 +312,122 @@ def fetch_standings(league_id: int, season: int):
         )
         data = response.json()
     except Exception as e:
-        print(f"Failed to fetch standings: {e}")
+        print(f"Failed to connect to standings API: {e}")
         return None
 
     if response.status_code != 200:
-        print(f"Standings API error: {data}")
         return None
 
-    return data.get("response")
+    errors = data.get("errors") or {}
+
+    if errors and season != FREE_PLAN_MAX_SEASON:
+        print(f"Season {season} blocked, falling back to {FREE_PLAN_MAX_SEASON}")
+        return fetch_standings(league_id, FREE_PLAN_MAX_SEASON)
+
+    return data.get("response") or None
 
 
+# ---------------------------------------------------------------- model
 def build_team_ratings(standings_response):
-    ratings = {}
+    teams = {}
 
-    for league_data in standings_response or []:
-        standings_groups = league_data.get("league", {}).get("standings", [])
+    for entry in standings_response:
+        league_data = entry.get("league") or {}
+        standings = league_data.get("standings") or []
 
-        rows = []
-
-        for group in standings_groups:
-            for row in group:
-                team = row.get("team", {})
-                all_stats = row.get("all", {})
-
+        for table in standings:
+            for row in table:
+                team = row.get("team") or {}
                 team_id = team.get("id")
-                name = team.get("name")
 
-                played = all_stats.get("played") or 0
-                goals = all_stats.get("goals", {})
+                stats = row.get("all") or {}
+                goals = stats.get("goals") or {}
+                played = stats.get("played") or 0
 
-                goals_for = goals.get("for") or 0
-                goals_against = goals.get("against") or 0
-                rank = row.get("rank")
+                if not team_id or played <= 0:
+                    continue
 
-                if team_id and name and played > 0:
-                    rows.append(
-                        {
-                            "id": team_id,
-                            "name": name,
-                            "played": played,
-                            "gf": goals_for,
-                            "ga": goals_against,
-                            "rank": rank,
-                        }
-                    )
+                gf = goals.get("for") or 0
+                ga = goals.get("against") or 0
+                points = row.get("points") or 0
+                form = row.get("form") or ""
 
-        if not rows:
-            continue
+                teams[team_id] = {
+                    "name": team.get("name"),
+                    "attack": gf / played,
+                    "defense": ga / played,
+                    "points_per_game": points / played,
+                    "form": form,
+                }
 
-        avg_for = sum(r["gf"] / r["played"] for r in rows) / len(rows)
-        avg_against = sum(r["ga"] / r["played"] for r in rows) / len(rows)
-
-        if avg_for <= 0:
-            avg_for = 1.30
-
-        if avg_against <= 0:
-            avg_against = 1.30
-
-        for r in rows:
-            team_for_rate = r["gf"] / r["played"]
-            team_against_rate = r["ga"] / r["played"]
-
-            attack = team_for_rate / avg_for
-            defense = team_against_rate / avg_against
-
-            attack = max(0.40, min(2.50, attack))
-            defense = max(0.40, min(2.50, defense))
-
-            ratings[str(r["id"])] = {
-                "name": r["name"],
-                "attack": attack,
-                "defense": defense,
-                "rank": r["rank"],
-            }
-
-    return ratings
+    return teams
 
 
-def get_expected_goals(home_team_id, away_team_id, ratings: dict):
-    home_rating = ratings.get(str(home_team_id)) if home_team_id else None
-    away_rating = ratings.get(str(away_team_id)) if away_team_id else None
+def form_score(form):
+    if not form:
+        return 0.5
 
-    base_home = 1.35
-    base_away = 1.15
+    values = {"W": 1.0, "D": 0.5, "L": 0.0}
+    chars = [c for c in form.upper() if c in values]
 
-    if not home_rating or not away_rating:
-        return base_home, base_away, 0.35
+    if not chars:
+        return 0.5
 
-    home_attack = home_rating.get("attack", 1.0)
-    home_defense = home_rating.get("defense", 1.0)
-
-    away_attack = away_rating.get("attack", 1.0)
-    away_defense = away_rating.get("defense", 1.0)
-
-    lh = base_home * home_attack * away_defense
-    la = base_away * away_attack * home_defense
-
-    return clamp_xg(lh), clamp_xg(la), 0.65
+    return sum(values[c] for c in chars) / len(chars)
 
 
-def has_predictions(db: Session, fixture_id: int) -> bool:
-    count = db.query(Prediction).filter(
-        Prediction.fixture_id == fixture_id
-    ).count()
+def get_expected_goals(home_team_id, away_team_id, ratings):
+    home = ratings.get(home_team_id)
+    away = ratings.get(away_team_id)
 
-    return count > 0
+    if not home or not away:
+        return 1.30, 1.10, 0.35
+
+    home_form = form_score(home.get("form"))
+    away_form = form_score(away.get("form"))
+
+    home_base = (home["attack"] * away["defense"]) / LEAGUE_AVG_GOALS
+    away_base = (away["attack"] * home["defense"]) / LEAGUE_AVG_GOALS
+
+    home_base *= 1.15
+    away_base *= 0.95
+
+    home_xg = clamp_xg(home_base * (0.85 + 0.30 * home_form))
+    away_xg = clamp_xg(away_base * (0.85 + 0.30 * away_form))
+
+    return home_xg, away_xg, 0.75
 
 
-def safe_confidence_score(prob: float, data_quality: float) -> int:
-    score = (float(prob) * 100 * 0.70) + (float(data_quality) * 100 * 0.30)
-
-    if data_quality < 0.55:
-        score = min(score, 54)
-
-    return max(5, min(94, int(round(score))))
+def poisson_p(lam, k):
+    return math.exp(-lam) * (lam ** k) / math.factorial(k)
 
 
-def safe_confidence_label(score: int) -> str:
+def score_matrix(lh, la, max_goals=6):
+    scores = {}
+
+    for h in range(max_goals + 1):
+        for a in range(max_goals + 1):
+            scores[(h, a)] = poisson_p(lh, h) * poisson_p(la, a)
+
+    total = sum(scores.values())
+
+    if total > 0:
+        scores = {k: v / total for k, v in scores.items()}
+
+    return scores
+
+
+def confidence_from_prob(prob):
+    score = int(round(prob * 100))
+
     if score >= 75:
-        return "High"
-    if score >= 60:
-        return "Medium"
-    return "Low"
-
-
-def cs_htft_confidence_score(prob: float, data_quality: float, market: str) -> int:
-    if market == "CS":
-        p_norm = min(1.0, float(prob) / 0.18)
+        label = "High"
+    elif score >= 60:
+        label = "Medium"
     else:
-        p_norm = min(1.0, float(prob) / 0.40)
+        label = "Low"
 
-    score = (0.55 * p_norm + 0.45 * float(data_quality)) * 100
-
-    if data_quality < 0.55:
-        score = min(score, 54)
-
-    return max(5, min(94, int(round(score))))
+    return score, label
 
 
 def safe_market_predictions(scores: dict, home_team: str, away_team: str):
@@ -454,17 +435,20 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
 
     over_05 = clamp_prob(1.0 - p00)
     over_15 = clamp_prob(1.0 - p00 - scores.get((1, 0), 0.0) - scores.get((0, 1), 0.0))
-    over_25 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a >= 3))
-    
-    under_35 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a <= 3))
-    under_45 = clamp_prob(sum(p for (h, a), p in scores.items() if h + a <= 4))
+    over_25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a >= 3))
+    over_35 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a >= 4))
 
-    btts_yes = clamp_prob(sum(p for (h, a), p in scores.items() if h > 0 and a > 0))
+    under_35 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a <= 3))
+    under_45 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a <= 4))
+
+    btts_yes = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > 0 and a > 0))
     btts_no = clamp_prob(1.0 - btts_yes)
 
-    home_win = clamp_prob(sum(p for (h, a), p in scores.items() if h > a))
-    draw = clamp_prob(sum(p for (h, a), p in scores.items() if h == a))
-    away_win = clamp_prob(sum(p for (h, a), p in scores.items() if a > h))
+    btts_o25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > 0 and a > 0 and h + a >= 3))
+
+    home_win = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > a))
+    draw = clamp_prob(sum(pr for (h, a), pr in scores.items() if h == a))
+    away_win = clamp_prob(sum(pr for (h, a), pr in scores.items() if a > h))
 
     dc_1x = clamp_prob(home_win + draw)
     dc_x2 = clamp_prob(away_win + draw)
@@ -474,7 +458,12 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
     home_dnb = clamp_prob(home_win / no_draw_denominator if no_draw_denominator > 0 else 0.0)
     away_dnb = clamp_prob(away_win / no_draw_denominator if no_draw_denominator > 0 else 0.0)
 
-    # HIGH ODDS MULTISCORE MARKETS
+    home_over_15 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h >= 2))
+    away_over_15 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a >= 2))
+
+    win_nil_home = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > a and a == 0))
+    win_nil_away = clamp_prob(sum(pr for (h, a), pr in scores.items() if a > h and h == 0))
+
     home_multi_scores = [(2, 0), (2, 1), (3, 0), (3, 1)]
     away_multi_scores = [(0, 2), (1, 2), (0, 3), (1, 3)]
     draw_multi_scores = [(1, 1), (2, 2)]
@@ -487,103 +476,126 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
         ("OVER_05", "Over 0.5 Goals", over_05),
         ("OVER_15", "Over 1.5 Goals", over_15),
         ("OVER_25", "Over 2.5 Goals", over_25),
+        ("OVER_35", "Over 3.5 Goals", over_35),
         ("UNDER_35", "Under 3.5 Goals", under_35),
         ("UNDER_45", "Under 4.5 Goals", under_45),
         ("BTTS_YES", "Both Teams To Score - Yes", btts_yes),
         ("BTTS_NO", "Both Teams To Score - No", btts_no),
+        ("BTTS_O25", "BTTS & Over 2.5 Goals", btts_o25),
         ("DC_1X", f"{home_team} or Draw", dc_1x),
         ("DC_X2", f"{away_team} or Draw", dc_x2),
         ("DC_12", f"{home_team} or {away_team}", dc_12),
         ("HOME_DNB", f"{home_team} Draw No Bet", home_dnb),
         ("AWAY_DNB", f"{away_team} Draw No Bet", away_dnb),
-        # NEW HIGH ODDS MARKETS
+        ("HOME_OVER_15", f"{home_team} To Score Over 1.5 Goals", home_over_15),
+        ("AWAY_OVER_15", f"{away_team} To Score Over 1.5 Goals", away_over_15),
+        ("WIN_TO_NIL_HOME", f"{home_team} To Win To Nil", win_nil_home),
+        ("WIN_TO_NIL_AWAY", f"{away_team} To Win To Nil", win_nil_away),
         ("HOME_MULTI", f"{home_team} Multiscore (2-0, 2-1, 3-0, 3-1)", home_multi_prob),
         ("AWAY_MULTI", f"{away_team} Multiscore (0-2, 1-2, 0-3, 1-3)", away_multi_prob),
         ("DRAW_MULTI", "Draw Multiscore (1-1, 2-2)", draw_multi_prob),
     ]
 
-def generate_predictions_for_fixture(
-    db: Session,
-    fixture: Fixture,
-    lh: float,
-    la: float,
-    data_quality: float,
-) -> bool:
-    if has_predictions(db, fixture.id):
+
+def correct_score_predictions(scores):
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+
+    top = ranked[0]
+    alts = ranked[1:4]
+
+    return {
+        "pick": f"{top[0][0]}-{top[0][1]}",
+        "probability": top[1],
+        "alternatives": [
+            {"score": f"{h}-{a}", "probability": p}
+            for (h, a), p in alts
+        ],
+    }
+
+
+def ht_ft_predictions(lh, la):
+    ht_lh = lh * 0.45
+    ht_la = la * 0.45
+    sh_lh = max(0.05, lh - ht_lh)
+    sh_la = max(0.05, la - ht_la)
+
+    ht_scores = score_matrix(ht_lh, ht_la, max_goals=4)
+    sh_scores = score_matrix(sh_lh, sh_la, max_goals=4)
+
+    options = {}
+
+    for (hh, ha), hp in ht_scores.items():
+        hr = "H" if hh > ha else "A" if ha > hh else "D"
+
+        for (sh, sa), sp in sh_scores.items():
+            fh = hh + sh
+            fa = ha + sa
+            fr = "H" if fh > fa else "A" if fa > fh else "D"
+
+            key = f"{hr}/{fr}"
+            options[key] = options.get(key, 0.0) + hp * sp
+
+    return sorted(options.items(), key=lambda item: item[1], reverse=True)
+
+
+def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality):
+    existing = db.query(Prediction).filter(
+        Prediction.fixture_id == fixture.id
+    ).first()
+
+    if existing:
         return False
 
-    home_team = fixture.home_team
-    away_team = fixture.away_team
-
     scores = score_matrix(lh, la)
+    created = 0
 
-    # Correct Score
-    top_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    best_score, best_score_prob = top_scores[0]
-
-    cs_pick = f"{best_score[0]}-{best_score[1]}"
-    cs_score = cs_htft_confidence_score(best_score_prob, data_quality, "CS")
-
-    db.add(
-        Prediction(
+    for market, pick, prob in safe_market_predictions(scores, fixture.home_team, fixture.away_team):
+        score, label = confidence_from_prob(prob)
+        db.add(make_prediction(
             fixture_id=fixture.id,
-            market="CS",
-            pick=cs_pick,
-            probability=best_score_prob,
-            confidence_score=cs_score,
-            confidence_label=confidence_label(cs_score),
+            market=market,
+            pick=pick,
+            probability=round(prob, 4),
+            confidence_score=score,
+            confidence_label=label,
             status="pending",
-        )
-    )
+        ))
+        created += 1
 
-    # HT/FT
-    htft_probs = ht_ft(lh, la)
-    top_htft = sorted(htft_probs.items(), key=lambda item: item[1], reverse=True)
-    best_htft, best_htft_prob = top_htft[0]
+    cs = correct_score_predictions(scores)
+    score, label = confidence_from_prob(cs["probability"])
+    db.add(make_prediction(
+        fixture_id=fixture.id,
+        market="CS",
+        pick=cs["pick"],
+        probability=round(cs["probability"], 4),
+        confidence_score=score,
+        confidence_label=label,
+        status="pending",
+    ))
+    created += 1
 
-    htft_score = cs_htft_confidence_score(best_htft_prob, data_quality, "HTFT")
-
-    db.add(
-        Prediction(
+    htft = ht_ft_predictions(lh, la)
+    if htft:
+        pick, prob = htft[0]
+        score, label = confidence_from_prob(prob)
+        db.add(make_prediction(
             fixture_id=fixture.id,
             market="HTFT",
-            pick=best_htft,
-            probability=best_htft_prob,
-            confidence_score=htft_score,
-            confidence_label=confidence_label(htft_score),
+            pick=pick,
+            probability=round(prob, 4),
+            confidence_score=score,
+            confidence_label=label,
             status="pending",
-        )
-    )
-
-    # Safe markets
-    safe_markets = safe_market_predictions(scores, home_team, away_team)
-
-    for market, pick, prob in safe_markets:
-        if prob < 0.55:
-            continue
-
-        score = safe_confidence_score(prob, data_quality)
-
-        db.add(
-            Prediction(
-                fixture_id=fixture.id,
-                market=market,
-                pick=pick,
-                probability=prob,
-                confidence_score=score,
-                confidence_label=safe_confidence_label(score),
-                status="pending",
-            )
-        )
+        ))
+        created += 1
 
     db.commit()
-
-    print(f"Generated predictions for: {home_team} vs {away_team}")
-
-    return True
+    return created > 0
 
 
-def process_fixture(db: Session, item: dict, ratings: dict, counters: dict):
+# ---------------------------------------------------------------- sync
+def process_fixture(db: Session, item, ratings, counters):
     league = item.get("league") or {}
     league_name = league.get("name")
 
@@ -591,69 +603,61 @@ def process_fixture(db: Session, item: dict, ratings: dict, counters: dict):
         counters["skipped"] += 1
         return
 
-    api_fixture = item.get("fixture", {})
-    teams = item.get("teams", {})
-    goals = item.get("goals") or {}
-    halftime = (item.get("score") or {}).get("halftime", {})
+    if not is_quality_league(league_name):
+        counters["skipped"] += 1
+        return
 
+    api_fixture = item.get("fixture") or {}
     api_fixture_id = api_fixture.get("id")
-    status = api_fixture.get("status", {}).get("short") or "NS"
-    kickoff = parse_api_date(api_fixture.get("date"))
 
-    home_team = teams.get("home", {}).get("name")
-    away_team = teams.get("away", {}).get("name")
+    teams = item.get("teams") or {}
+    home_team = (teams.get("home") or {}).get("name")
+    away_team = (teams.get("away") or {}).get("name")
+    home_team_id = (teams.get("home") or {}).get("id")
+    away_team_id = (teams.get("away") or {}).get("id")
 
-    home_team_id = teams.get("home", {}).get("id")
-    away_team_id = teams.get("away", {}).get("id")
     if is_blocked_text(home_team) or is_blocked_text(away_team):
         counters["skipped"] += 1
         return
+
     if not api_fixture_id or not home_team or not away_team:
         return
+
+    status = api_fixture.get("status", {}).get("short") or ""
+
     if status not in PREDICTABLE_STATUSES:
         return
 
-    lh, la, data_quality = get_expected_goals(
-        home_team_id,
-        away_team_id,
-        ratings,
-    )
+    lh, la, data_quality = get_expected_goals(home_team_id, away_team_id, ratings)
 
     if data_quality < 0.55:
         counters["unrated_skipped"] += 1
         return
+
+    kickoff = parse_kickoff(api_fixture.get("date"))
+
     existing_fixture = db.query(Fixture).filter(
         Fixture.api_fixture_id == api_fixture_id
     ).first()
 
     if not existing_fixture:
-        fixture = Fixture(
+        fixture = make_fixture(
             api_fixture_id=api_fixture_id,
             league=league_name,
             home_team=home_team,
             away_team=away_team,
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
             kickoff=kickoff,
             status=status,
-            home_goals=goals.get("home"),
-            away_goals=goals.get("away"),
-            ht_home_goals=halftime.get("home"),
-            ht_away_goals=halftime.get("away"),
         )
-
         db.add(fixture)
         db.commit()
         db.refresh(fixture)
     else:
         fixture = existing_fixture
-
         fixture.status = status
-        fixture.home_goals = goals.get("home")
-        fixture.away_goals = goals.get("away")
-        fixture.ht_home_goals = halftime.get("home")
-        fixture.ht_away_goals = halftime.get("away")
-
         db.commit()
-        db.refresh(fixture)
 
     counters["processed"] += 1
     counters["rated"] += 1
@@ -661,36 +665,25 @@ def process_fixture(db: Session, item: dict, ratings: dict, counters: dict):
     if generate_predictions_for_fixture(db, fixture, lh, la, data_quality):
         counters["generated"] += 1
 
+
 def sync_fixtures_and_predictions():
     if not API_KEY:
         print("ERROR: API_FOOTBALL_KEY is missing in .env")
         return
 
-    print("Connecting to API-Football...")
+    db = SessionLocal()
 
-    db: Session = SessionLocal()
-
-    counters = {
-        "processed": 0,
-        "generated": 0,
-        "skipped": 0,
-        "rated": 0,
-        "unrated_skipped": 0,
-    }
     today = date.today()
-    tomorrow = today + timedelta(days=1)
+    dates = [today, today + timedelta(days=1)]
 
-    dates = [today, tomorrow]
+    print("Connecting to API-Football...")
 
     all_fixtures = []
 
     for target_date in dates:
         print(f"Fetching fixtures for {target_date.isoformat()}...")
-
         fixtures = fetch_fixtures_for_date(target_date)
-
         print(f"Found {len(fixtures)} matches.")
-
         all_fixtures.extend(fixtures)
 
     league_info = {}
@@ -700,6 +693,9 @@ def sync_fixtures_and_predictions():
         league_name = league.get("name")
 
         if is_blocked_league(league_name):
+            continue
+
+        if not is_quality_league(league_name):
             continue
 
         league_id = league.get("id")
@@ -724,7 +720,7 @@ def sync_fixtures_and_predictions():
                 if is_priority_league(league_name):
                     info["priority"] = True
 
-    cache = load_ratings_cache()
+    cache = load_ratings_cache(db)
     ratings = {}
     requests_used = 0
     today_str = today.isoformat()
@@ -757,9 +753,8 @@ def sync_fixtures_and_predictions():
         count = info.get("count", 0)
 
         print(
-            f"Fetching standings: league={league_id}, "
-            f"season={season}, fixtures={count}, "
-            f"priority={info.get('priority', False)}"
+            f"Fetching standings: league={league_id}, season={season}, "
+            f"fixtures={count}, priority={info.get('priority', False)}"
         )
 
         standings_response = fetch_standings(league_id, season)
@@ -769,6 +764,7 @@ def sync_fixtures_and_predictions():
 
         if standings_response:
             teams = build_team_ratings(standings_response)
+            print(f"Standings loaded: league={league_id}, teams={len(teams)}")
 
         cache[key] = {
             "updated": today_str,
@@ -779,14 +775,20 @@ def sync_fixtures_and_predictions():
 
         time.sleep(0.25)
 
-    save_ratings_cache(cache)
+    save_ratings_cache(db, cache)
 
     print(f"Loaded ratings for {len(ratings)} teams.")
 
+    counters = {
+        "processed": 0,
+        "generated": 0,
+        "skipped": 0,
+        "rated": 0,
+        "unrated_skipped": 0,
+    }
+
     for item in all_fixtures:
         process_fixture(db, item, ratings, counters)
-
-    db.close()
 
     print(f"Processed rated fixtures: {counters['processed']}")
     print(f"Skipped friendlies/blocked: {counters['skipped']}")
@@ -795,7 +797,8 @@ def sync_fixtures_and_predictions():
     print(f"Generated predictions for {counters['generated']} fixtures.")
     print("Sync complete.")
 
+    db.close()
+
 
 if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
     sync_fixtures_and_predictions()

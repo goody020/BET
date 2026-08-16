@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Foreig
 from sqlalchemy.orm import relationship
 
 # IF THIS ERRORS, CHANGE 'database' TO 'app' (e.g., from app import Base)
-from database import Base  
+from app import Base  
 
 
 class Fixture(Base):

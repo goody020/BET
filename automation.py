@@ -1,8 +1,6 @@
 import os
-import json
 import threading
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -11,7 +9,6 @@ from sync_sports import sync_fixtures_and_predictions
 from settle_predictions import update_fixtures_from_api, settle_all
 from sync_odds import match_and_save_odds
 
-STATE_FILE = Path(__file__).resolve().parent / "automation_state.json"
 
 AUTOMATION_ENABLED = os.getenv("AUTOMATION_ENABLED", "true").strip().lower() in {
     "1",
@@ -78,6 +75,8 @@ def update_state(key):
             row.state_value = value
 
         db.commit()
+    except Exception as e:
+        print(f"Automation state error: {e}")
     finally:
         db.close()
 
@@ -85,74 +84,48 @@ def update_state(key):
 def run_sync():
     with _lock:
         if RUNNING["sync"]:
-            return {
-                "status": "already_running",
-            }
-
+            return {"status": "already_running"}
         RUNNING["sync"] = True
 
     try:
         print("Automation: starting fixture sync...")
-
         sync_fixtures_and_predictions()
-
-        update_state("last_sync")
-
-        print("Automation: fixture sync complete.")
-
-        return {
-            "status": "success",
-        }
-    except Exception as e:
-        print(f"Automation sync error: {e}")
-
-        return {
-            "status": "error",
-            "detail": str(e),
-        }
-    finally:
-        with _lock:
-            RUNNING["sync"] = False
 
         print("Automation: starting odds sync...")
         db = SessionLocal()
         match_and_save_odds(db)
         db.close()
+
+        update_state("last_sync")
+        print("Automation: fixture sync complete.")
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Automation sync error: {e}")
+        return {"status": "error", "detail": str(e)}
+    finally:
+        with _lock:
+            RUNNING["sync"] = False
+
+
 def run_settlement():
     with _lock:
         if RUNNING["settlement"]:
-            return {
-                "status": "already_running",
-            }
-
+            return {"status": "already_running"}
         RUNNING["settlement"] = True
 
     try:
         print("Automation: starting settlement...")
-
         db = SessionLocal()
-
         updated = update_fixtures_from_api(db)
         counts = settle_all(db)
-
         db.close()
 
         update_state("last_settlement")
-
         print("Automation: settlement complete.")
-
-        return {
-            "status": "success",
-            "updated_fixtures": updated,
-            "counts": counts,
-        }
+        return {"status": "success", "updated_fixtures": updated, "counts": counts}
     except Exception as e:
         print(f"Automation settlement error: {e}")
-
-        return {
-            "status": "error",
-            "detail": str(e),
-        }
+        return {"status": "error", "detail": str(e)}
     finally:
         with _lock:
             RUNNING["settlement"] = False
@@ -161,11 +134,7 @@ def run_settlement():
 def run_all():
     settlement_result = run_settlement()
     sync_result = run_sync()
-
-    return {
-        "settlement": settlement_result,
-        "sync": sync_result,
-    }
+    return {"settlement": settlement_result, "sync": sync_result}
 
 
 def start_scheduler():
@@ -207,41 +176,44 @@ def stop_scheduler():
         print("Automation stopped.")
 
 
-    _last_auto_check = {"time": None}
+_last_auto_check = {"time": None}
 
 
 def maybe_run_automation():
-    now = datetime.now(timezone.utc)
+    try:
+        now = datetime.now(timezone.utc)
 
-    if _last_auto_check["time"] and (now - _last_auto_check["time"]) < timedelta(minutes=10):
-        return
+        if _last_auto_check["time"] and (now - _last_auto_check["time"]) < timedelta(minutes=10):
+            return
 
-    _last_auto_check["time"] = now
+        _last_auto_check["time"] = now
 
-    state = load_state()
+        state = load_state()
 
-    def is_stale(value, hours):
-        if not value:
-            return True
-        try:
-            then = datetime.fromisoformat(value)
-        except Exception:
-            return True
-        return (now - then) > timedelta(hours=hours)
+        def is_stale(value, hours):
+            if not value:
+                return True
+            try:
+                then = datetime.fromisoformat(value)
+            except Exception:
+                return True
+            return (now - then) > timedelta(hours=hours)
 
-    jobs = []
+        jobs = []
 
-    if is_stale(state.get("last_settlement"), 12):
-        jobs.append(run_settlement)
+        if is_stale(state.get("last_settlement"), 12):
+            jobs.append(run_settlement)
 
-    if is_stale(state.get("last_sync"), 20):
-        jobs.append(run_sync)
+        if is_stale(state.get("last_sync"), 20):
+            jobs.append(run_sync)
 
-    if not jobs:
-        return
+        if not jobs:
+            return
 
-    def runner():
-        for job in jobs:
-            job()
+        def runner():
+            for job in jobs:
+                job()
 
-    threading.Thread(target=runner, daemon=True).start()
+        threading.Thread(target=runner, daemon=True).start()
+    except Exception as e:
+        print(f"Automation check error: {e}")

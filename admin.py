@@ -164,12 +164,25 @@ def list_payments(db: Session = Depends(get_db), user: User = Depends(require_ad
         }
         for p in payments
     ]
-@router.post("/automation/sync-odds")
-def trigger_odds_sync(user: User = Depends(require_admin)):
-    try:
-        db = SessionLocal()
-        match_and_save_odds(db)
-        db.close()
-        return {"status": "odds_sync_success"}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
+
+
+@router.get("/reset-sports")
+def reset_sports_tables(key: str = ""):
+    if key != "valuebets-reset":
+        return {"status": "forbidden"}
+
+    from app import Base, engine
+    from sports_models import Fixture, Prediction, OddsInsight, RatingsCache, AutomationState
+
+    tables = [
+        OddsInsight.__table__,
+        Prediction.__table__,
+        Fixture.__table__,
+        RatingsCache.__table__,
+        AutomationState.__table__,
+    ]
+
+    Base.metadata.drop_all(bind=engine, tables=tables)
+    Base.metadata.create_all(bind=engine, tables=tables)
+
+    return {"status": "reset complete"}

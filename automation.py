@@ -100,7 +100,9 @@ def run_sync():
         print("Automation: fixture sync complete.")
         return {"status": "success"}
     except Exception as e:
+        import traceback
         print(f"Automation sync error: {e}")
+        traceback.print_exc()
         return {"status": "error", "detail": str(e)}
     finally:
         with _lock:

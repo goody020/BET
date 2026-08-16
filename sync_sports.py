@@ -275,16 +275,19 @@ def fetch_fixtures_for_date(target_date: date):
         "date": target_date.isoformat(),
     }
 
+    print(f"Requesting API for {target_date.isoformat()}...")
+
     try:
         response = requests.get(
             API_FIXTURES_URL,
             headers=api_headers(),
             params=params,
-            timeout=30,
+            timeout=(10, 30),
         )
+        print(f"API status: {response.status_code}")
         data = response.json()
     except Exception as e:
-        print(f"Failed to connect to API: {e}")
+        print(f"Failed to connect to API: {type(e).__name__}: {e}")
         return []
 
     if response.status_code != 200:
@@ -308,7 +311,7 @@ def fetch_standings(league_id, season):
             API_STANDINGS_URL,
             headers=api_headers(),
             params=params,
-            timeout=30,
+            timeout=(10, 30),
         )
         data = response.json()
     except Exception as e:

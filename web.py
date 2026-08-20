@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from history import router as history_router
 from app import app as api_app, engine, Base
@@ -48,6 +48,14 @@ def on_shutdown():
 def root():
     maybe_run_automation()
     return RedirectResponse(url="/app")
+
+@web.get("/sw.js")
+def service_worker():
+    return FileResponse(STATIC_DIR / "sw.js", media_type="application/javascript")
+
+@web.get("/manifest.webmanifest")
+def manifest():
+    return FileResponse(STATIC_DIR / "manifest.webmanifest", media_type="application/manifest+json")
 
 
 @web.get("/app", response_class=HTMLResponse)

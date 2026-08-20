@@ -1,5 +1,7 @@
 import os
 import uuid
+import hmac
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -23,27 +25,27 @@ from app import (
 
 load_dotenv()
 
-FLW_SECRET_KEY = os.getenv("FLUTTERWAVE_SECRET_KEY", "").strip()
-FLW_SECRET_HASH = os.getenv("FLUTTERWAVE_SECRET_HASH", "").strip()
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET", "").strip()
 
 try:
-    FLW_PREMIUM_AMOUNT = float(os.getenv("FLUTTERWAVE_PREMIUM_AMOUNT", "10000"))
+    PAYSTACK_PREMIUM_AMOUNT = float(os.getenv("PAYSTACK_PREMIUM_AMOUNT", "10000"))
 except Exception:
-    FLW_PREMIUM_AMOUNT = 10000.0
+    PAYSTACK_PREMIUM_AMOUNT = 10000.0
 
 try:
-    PREMIUM_DAYS = int(os.getenv("FLUTTERWAVE_PREMIUM_DAYS", "30"))
+    PREMIUM_DAYS = int(os.getenv("PAYSTACK_PREMIUM_DAYS", "30"))
 except Exception:
     PREMIUM_DAYS = 30
 
-FLW_CURRENCY = os.getenv("FLUTTERWAVE_CURRENCY", "NGN").strip() or "NGN"
+PAYSTACK_CURRENCY = os.getenv("PAYSTACK_CURRENCY", "NGN").strip() or "NGN"
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:8000").rstrip("/")
 
-FLW_API = "https://api.flutterwave.com/v3"
+PAYSTACK_API = "https://api.paystack.co"
 
-router = APIRouter(prefix="/billing/flutterwave", tags=["flutterwave"])
+router = APIRouter(prefix="/billing/flutterwave", tags=["paystack"])
 
 
 # -----------------------------
@@ -104,9 +106,9 @@ class InitializeResponse(BaseModel):
 # Helpers
 # -----------------------------
 
-def flw_headers():
+def paystack_headers():
     return {
-        "Authorization": f"Bearer {FLW_SECRET_KEY}",
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
         "Content-Type": "application/json",
     }
 
@@ -195,10 +197,10 @@ def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
     if not isinstance(tx, dict):
         return None
 
-    if tx.get("status") != "successful":
+    if tx.get("status") != "success":
         return None
 
-    tx_ref = tx.get("tx_ref")
+    tx_ref = tx.get("reference")
 
     if not tx_ref:
         return None
@@ -206,7 +208,7 @@ def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
     user_id = parse_user_id_from_tx_ref(tx_ref)
 
     if not user_id:
-        user_id = parse_user_id_from_meta(tx.get("meta"))
+        user_id = parse_user_id_from_meta(tx.get("metadata"))
 
     if not user_id:
         return None
@@ -217,20 +219,20 @@ def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
         return None
 
     try:
-        charged_amount = float(tx.get("charged_amount", tx.get("amount", 0)))
+        charged_amount = float(tx.get("amount", 0)) / 100.0
     except Exception:
         charged_amount = 0.0
 
     currency = tx.get("currency")
 
-    if charged_amount < FLW_PREMIUM_AMOUNT:
+    if charged_amount < PAYSTACK_PREMIUM_AMOUNT:
         return None
 
-    if currency != FLW_CURRENCY:
+    if currency != PAYSTACK_CURRENCY:
         return None
 
-    flw_ref = tx.get("flw_ref")
-    transaction_id = str(tx.get("id") or tx.get("transaction_id") or "")
+    flw_ref = tx.get("reference")
+    transaction_id = str(tx.get("id") or "")
 
     payment = find_existing_payment(db, tx_ref, flw_ref, transaction_id)
 
@@ -272,7 +274,7 @@ def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
 # -----------------------------
 
 @router.get("/status")
-def flutterwave_billing_status(
+def paystack_billing_status(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -294,53 +296,38 @@ def initialize_payment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not FLW_SECRET_KEY:
+    if not PAYSTACK_SECRET_KEY:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Flutterwave is not configured. Set FLUTTERWAVE_SECRET_KEY in .env.",
+            detail="Paystack is not configured. Set PAYSTACK_SECRET_KEY in .env.",
         )
 
     tx_ref = f"premium_{user.id}_{uuid.uuid4().hex}"
 
     payload = {
-        "tx_ref": tx_ref,
-        "amount": int(FLW_PREMIUM_AMOUNT),
-        "currency": FLW_CURRENCY,
-        "redirect_url": f"{BACKEND_URL}/api/billing/flutterwave/verify",
-        "customer": {
-            "email": user.email,
-        },
-        "meta": [
-            {
-                "key": "user_id",
-                "value": str(user.id),
-            },
-            {
-                "key": "product",
-                "value": "premium",
-            },
-            {
-                "key": "premium_days",
-                "value": str(PREMIUM_DAYS),
-            },
-        ],
-        "customizations": {
-            "title": "Premium Access",
-            "description": "Premium predictions",
+        "reference": tx_ref,
+        "email": user.email,
+        "amount": int(PAYSTACK_PREMIUM_AMOUNT * 100),
+        "currency": PAYSTACK_CURRENCY,
+        "callback_url": f"{BACKEND_URL}/api/billing/flutterwave/verify",
+        "metadata": {
+            "user_id": user.id,
+            "product": "premium",
+            "premium_days": PREMIUM_DAYS,
         },
     }
 
     try:
         response = requests.post(
-            f"{FLW_API}/payments",
+            f"{PAYSTACK_API}/transaction/initialize",
             json=payload,
-            headers=flw_headers(),
+            headers=paystack_headers(),
             timeout=30,
         )
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not connect to Flutterwave.",
+            detail="Could not connect to Paystack.",
         )
 
     try:
@@ -348,28 +335,28 @@ def initialize_payment(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Invalid Flutterwave response.",
+            detail="Invalid Paystack response.",
         )
 
-    if response.status_code != 200 or data.get("status") != "success":
+    if response.status_code != 200 or data.get("status") != True:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=data.get("message", "Flutterwave payment initialization failed."),
+            detail=data.get("message", "Paystack payment initialization failed."),
         )
 
-    payment_url = data.get("data", {}).get("link")
+    payment_url = data.get("data", {}).get("authorization_url")
 
     if not payment_url:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Flutterwave did not return a payment URL.",
+            detail="Paystack did not return a payment URL.",
         )
 
     payment = Payment(
         user_id=user.id,
         tx_ref=tx_ref,
-        amount=FLW_PREMIUM_AMOUNT,
-        currency=FLW_CURRENCY,
+        amount=PAYSTACK_PREMIUM_AMOUNT,
+        currency=PAYSTACK_CURRENCY,
         status="pending",
         premium_granted=False,
         premium_days=PREMIUM_DAYS,
@@ -386,21 +373,22 @@ def initialize_payment(
 
 @router.get("/verify")
 def verify_payment(
-    transaction_id: Optional[str] = None,
-    tx_ref: Optional[str] = None,
-    status: Optional[str] = None,
+    reference: Optional[str] = None,
+    trxref: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    if not FLW_SECRET_KEY:
+    if not PAYSTACK_SECRET_KEY:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
 
-    if not transaction_id:
+    tx_ref = reference or trxref
+
+    if not tx_ref:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=cancelled")
 
     try:
         response = requests.get(
-            f"{FLW_API}/transactions/{transaction_id}/verify",
-            headers=flw_headers(),
+            f"{PAYSTACK_API}/transaction/verify/{tx_ref}",
+            headers=paystack_headers(),
             timeout=30,
         )
     except Exception:
@@ -411,7 +399,7 @@ def verify_payment(
     except Exception:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
 
-    if response.status_code != 200 or data.get("status") != "success":
+    if response.status_code != 200 or data.get("status") != True:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
 
     tx = data.get("data", {})
@@ -425,17 +413,25 @@ def verify_payment(
 
 
 @router.post("/webhook")
-async def flutterwave_webhook(
+async def paystack_webhook(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    signature = request.headers.get("verifi-hash")
+    signature = request.headers.get("x-paystack-signature")
 
-    if FLW_SECRET_HASH and signature != FLW_SECRET_HASH:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid Flutterwave webhook signature.",
-        )
+    if PAYSTACK_WEBHOOK_SECRET:
+        body = await request.body()
+        computed_signature = hmac.new(
+            PAYSTACK_WEBHOOK_SECRET.encode('utf-8'),
+            body,
+            hashlib.sha512
+        ).hexdigest()
+
+        if signature != computed_signature:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Paystack webhook signature.",
+            )
 
     try:
         payload = await request.json()
@@ -447,38 +443,25 @@ async def flutterwave_webhook(
     event = str(payload.get("event", "")).lower()
     data = payload.get("data", {})
 
-    transaction_id = None
+    if event == "charge.success" and isinstance(data, dict):
+        tx_ref = data.get("reference")
 
-    if isinstance(data, dict):
-        transaction_id = data.get("id")
+        if tx_ref:
+            try:
+                response = requests.get(
+                    f"{PAYSTACK_API}/transaction/verify/{tx_ref}",
+                    headers=paystack_headers(),
+                    timeout=30,
+                )
 
-    if not transaction_id:
-        transaction_id = payload.get("id")
+                if response.status_code == 200:
+                    response_data = response.json()
 
-    should_process = event in [
-        "charge.completed",
-        "charge.success",
-        "payment.completed",
-        "transaction.success",
-        "subscription.create",
-    ]
-
-    if transaction_id and should_process:
-        try:
-            response = requests.get(
-                f"{FLW_API}/transactions/{transaction_id}/verify",
-                headers=flw_headers(),
-                timeout=30,
-            )
-
-            if response.status_code == 200:
-                response_data = response.json()
-
-                if response_data.get("status") == "success":
-                    tx = response_data.get("data", {})
-                    process_verified_transaction(db, tx)
-        except Exception:
-            pass
+                    if response_data.get("status") == True:
+                        tx = response_data.get("data", {})
+                        process_verified_transaction(db, tx)
+            except Exception:
+                pass
 
     return {
         "status": "ok",

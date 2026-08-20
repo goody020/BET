@@ -380,11 +380,10 @@ def sync_fixtures_and_predictions():
 
     db = SessionLocal()
     today = date.today()
-    tomorrow = today + timedelta(days=1)
+    end_date = today + timedelta(days=7)
 
     print("Connecting to football-data.org...")
-    all_matches = fetch_matches_for_dates(today, tomorrow)
-    print(f"Found {len(all_matches)} matches.")
+    all_matches = fetch_matches_for_dates(today, end_date)
 
     if not all_matches:
         db.close()

@@ -10,7 +10,6 @@ router = APIRouter(prefix="/history", tags=["history"])
 
 @router.get("/wins")
 def get_wins(limit: int = 20, db: Session = Depends(get_db)):
-    # Fetch recent predictions that were settled as "won"
     rows = db.query(Prediction, Fixture).join(
         Fixture, Prediction.fixture_id == Fixture.id
     ).filter(
@@ -28,6 +27,8 @@ def get_wins(limit: int = 20, db: Session = Depends(get_db)):
         }
         for pred, fixture in rows
     ]
+
+
 @router.get("/results")
 def get_results(limit: int = 30, db: Session = Depends(get_db)):
     rows = db.query(Prediction, Fixture).join(

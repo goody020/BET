@@ -9,8 +9,7 @@ from sports_models import Fixture, Prediction, OddsInsight
 
 router = APIRouter(prefix="/picks", tags=["picks"])
 
-UPCOMING_STATUSES = {"NS", "TBD", "NOT_STARTED", ""}
-
+UPCOMING_STATUSES = {"NS", "TBD", "NOT_STARTED", "SCHEDULED", "TIMED", ""}
 SAFE_MARKET_LABELS = {
     "OVER_05": "Over 0.5 Goals",
     "OVER_15": "Over 1.5 Goals",

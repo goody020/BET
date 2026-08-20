@@ -83,8 +83,7 @@ def match_and_save_odds(db: Session):
         return
 
     # Get upcoming fixtures from our database that have predictions
-    fixtures = db.query(Fixture).filter(Fixture.status.in_(["NS", "TBD", "NOT_STARTED"])).all()
-    
+    fixtures = db.query(Fixture).filter(Fixture.status.in_(["NS", "TBD", "NOT_STARTED", "SCHEDULED", "TIMED"])).all()    
     value_bets_found = 0
     processed_fixtures = 0
 

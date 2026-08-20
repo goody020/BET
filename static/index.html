@@ -728,8 +728,7 @@
           </div>
           <div class="muted" style="text-align:right;">
             ${escapeHTML(kickoff)}<br />
-            Status: ${escapeHTML(p.status || "")}
-          </div>
+            Status: ${escapeHTML({"SCHEDULED":"Upcoming","TIMED":"Upcoming","NS":"Upcoming","TBD":"Upcoming","NOT_STARTED":"Upcoming","FT":"Finished"}[p.status] || p.status || "")}          </div>
         </div>
       `;
 

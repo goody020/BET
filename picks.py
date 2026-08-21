@@ -25,6 +25,7 @@ SAFE_MARKET_LABELS = {
     "HOME_MARGIN_2": "Home Win By 2+ Goals", "AWAY_MARGIN_2": "Away Win By 2+ Goals",
     "HT_HOME_MULTI": "HT Lead - Home (1-0, 2-0)", "HT_AWAY_MULTI": "HT Lead - Away (0-1, 0-2)",
     "HT_DRAW_MULTI": "HT Draw (0-0, 1-1)",
+       "HOME_WIN": "Home Win", "AWAY_WIN": "Away Win",
     "CS": "Correct Score", "HTFT": "HT/FT",
 }
 
@@ -34,7 +35,8 @@ PREMIUM_SAFE_MARKETS = {
     "HOME_OVER_15", "AWAY_OVER_15", "WIN_TO_NIL_HOME", "WIN_TO_NIL_AWAY",
     "HOME_MULTI_LOW", "HOME_MULTI_HIGH", "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
     "DRAW_MULTI", "HOME_MARGIN_2", "AWAY_MARGIN_2",
-    "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
+       "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
+    "HOME_WIN", "AWAY_WIN",
     "OVER_15",
     "CS", "HTFT",
     "OVER_25",

@@ -275,19 +275,25 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
     ht_draw_multi = clamp_prob(sum(scores.get(s, 0) for s in [(0, 0), (1, 1)]))
 
     return [
-        ("OVER_05", "Over 0.5 Goals", over_05), ("OVER_15", "Over 1.5 Goals", over_15),
-        ("OVER_25", "Over 2.5 Goals", over_25), ("OVER_35", "Over 3.5 Goals", over_35),
-        ("UNDER_35", "Under 3.5 Goals", under_35), ("UNDER_45", "Under 4.5 Goals", under_45),
-        ("BTTS_YES", "Both Teams To Score - Yes", btts_yes), ("BTTS_NO", "Both Teams To Score - No", btts_no),
+        ("OVER_05", "Over 0.5 Goals", over_05),
+        ("OVER_15", "Over 1.5 Goals", over_15),
+        ("OVER_25", "Over 2.5 Goals", over_25),
+        ("OVER_35", "Over 3.5 Goals", over_35),
+        ("UNDER_35", "Under 3.5 Goals", under_35),
+        ("UNDER_45", "Under 4.5 Goals", under_45),
+        ("BTTS_YES", "Both Teams To Score - Yes", btts_yes),
+        ("BTTS_NO", "Both Teams To Score - No", btts_no),
         ("BTTS_O25", "BTTS & Over 2.5 Goals", btts_o25),
-        ("DC_1X", f"{home_team} or Draw", dc_1x), ("DC_X2", f"{away_team} or Draw", dc_x2),
+        ("DC_1X", f"{home_team} or Draw", dc_1x),
+        ("DC_X2", f"{away_team} or Draw", dc_x2),
         ("DC_12", f"{home_team} or {away_team}", dc_12),
-        ("HOME_DNB", f"{home_team} Draw No Bet", home_dnb), ("AWAY_DNB", f"{away_team} Draw No Bet", away_dnb),
+        ("HOME_DNB", f"{home_team} Draw No Bet", home_dnb),
+        ("AWAY_DNB", f"{away_team} Draw No Bet", away_dnb),
         ("HOME_OVER_15", f"{home_team} To Score Over 1.5 Goals", home_over_15),
         ("AWAY_OVER_15", f"{away_team} To Score Over 1.5 Goals", away_over_15),
         ("WIN_TO_NIL_HOME", f"{home_team} To Win To Nil", win_nil_home),
         ("WIN_TO_NIL_AWAY", f"{away_team} To Win To Nil", win_nil_away),
-                ("HOME_MULTI_LOW", f"{home_team} Multiscore (1-0, 2-0)", home_multi_low),
+        ("HOME_MULTI_LOW", f"{home_team} Multiscore (1-0, 2-0)", home_multi_low),
         ("HOME_MULTI_HIGH", f"{home_team} Multiscore (2-1, 3-1)", home_multi_high),
         ("AWAY_MULTI_LOW", f"{away_team} Multiscore (0-1, 0-2)", away_multi_low),
         ("AWAY_MULTI_HIGH", f"{away_team} Multiscore (1-2, 1-3)", away_multi_high),
@@ -297,6 +303,8 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
         ("HT_HOME_MULTI", f"{home_team} To Lead At HT (1-0, 2-0)", ht_home_multi),
         ("HT_AWAY_MULTI", f"{away_team} To Lead At HT (0-1, 0-2)", ht_away_multi),
         ("HT_DRAW_MULTI", "Draw At HT (0-0, 1-1)", ht_draw_multi),
+        ("HOME_WIN", f"{home_team} To Win", home_win),
+        ("AWAY_WIN", f"{away_team} To Win", away_win),
     ]
 
 def correct_score_predictions(scores):

@@ -111,7 +111,8 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
     if market == "DRAW_MULTI": return "won" if (home_goals, away_goals) in [(1,1), (2,2)] else "lost"
 
     if market == "CS": return "won" if pred.pick == f"{home_goals}-{away_goals}" else "lost"
-
+    if market == "HOME_WIN": return "won" if home_goals > away_goals else "lost"
+    if market == "AWAY_WIN": return "won" if away_goals > home_goals else "lost"
     if market == "HOME_MULTI_LOW": return "won" if (home_goals, away_goals) in [(1, 0), (2, 0)] else "lost"
     if market == "HOME_MULTI_HIGH": return "won" if (home_goals, away_goals) in [(2, 1), (3, 1)] else "lost"
     if market == "AWAY_MULTI_LOW": return "won" if (home_goals, away_goals) in [(0, 1), (0, 2)] else "lost"

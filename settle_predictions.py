@@ -52,18 +52,24 @@ def update_fixtures_from_api(db: Session):
 
         for match in matches:
             api_fixture_id = match.get("id")
-            score = match.get("score", {}).get("fullTime", {})
-            home_goals = score.get("home")
-            away_goals = score.get("away")
+            score = match.get("score", {}) or {}
+            full = score.get("fullTime", {}) or {}
+            half = score.get("halfTime", {}) or {}
+            home_goals = full.get("home")
+            away_goals = full.get("away")
+            ht_home = half.get("home")
+            ht_away = half.get("away")
 
             if home_goals is None or away_goals is None:
                 continue
 
             fixture = db.query(Fixture).filter(Fixture.api_fixture_id == api_fixture_id).first()
-            
+
             if fixture and fixture.home_goals is None:
                 fixture.home_goals = home_goals
                 fixture.away_goals = away_goals
+                fixture.ht_home_goals = ht_home
+                fixture.ht_away_goals = ht_away
                 fixture.status = "FT"
                 updated_count += 1
 
@@ -71,7 +77,7 @@ def update_fixtures_from_api(db: Session):
     return updated_count
 
 
-def settle_prediction(pred: Prediction, home_goals: int, away_goals: int):
+def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_home=None, ht_away=None):
     market = pred.market
     total_goals = home_goals + away_goals
 
@@ -105,6 +111,38 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int):
     if market == "DRAW_MULTI": return "won" if (home_goals, away_goals) in [(1,1), (2,2)] else "lost"
 
     if market == "CS": return "won" if pred.pick == f"{home_goals}-{away_goals}" else "lost"
+
+    if market == "HOME_MULTI_LOW": return "won" if (home_goals, away_goals) in [(1, 0), (2, 0)] else "lost"
+    if market == "HOME_MULTI_HIGH": return "won" if (home_goals, away_goals) in [(2, 1), (3, 1)] else "lost"
+    if market == "AWAY_MULTI_LOW": return "won" if (home_goals, away_goals) in [(0, 1), (0, 2)] else "lost"
+    if market == "AWAY_MULTI_HIGH": return "won" if (home_goals, away_goals) in [(1, 2), (1, 3)] else "lost"
+    if market == "DRAW_MULTI": return "won" if (home_goals, away_goals) in [(1, 1), (2, 2)] else "lost"
+    if market == "HOME_MARGIN_2": return "won" if (home_goals - away_goals) >= 2 else "lost"
+    if market == "AWAY_MARGIN_2": return "won" if (away_goals - home_goals) >= 2 else "lost"
+
+    if market == "HTFT":
+        if ht_home is None or ht_away is None:
+            return "void"
+        hr = "H" if ht_home > ht_away else "A" if ht_away > ht_home else "D"
+        fr = "H" if home_goals > away_goals else "A" if away_goals > home_goals else "D"
+        return "won" if pred.pick == f"{hr}/{fr}" else "lost"
+
+    if market == "HT_HOME_MULTI":
+        if ht_home is None or ht_away is None:
+            return "void"
+        return "won" if (ht_home, ht_away) in [(1, 0), (2, 0)] else "lost"
+
+    if market == "HT_AWAY_MULTI":
+        if ht_home is None or ht_away is None:
+            return "void"
+        return "won" if (ht_home, ht_away) in [(0, 1), (0, 2)] else "lost"
+
+    if market == "HT_DRAW_MULTI":
+        if ht_home is None or ht_away is None:
+            return "void"
+        return "won" if (ht_home, ht_away) in [(0, 0), (1, 1)] else "lost"
+
+    return "void"
     if market == "HTFT":
         ht_h, ht_a = home_goals // 2, away_goals // 2 # rough approximation
         hr = "H" if ht_h > ht_a else "A" if ht_a > ht_h else "D"
@@ -130,7 +168,7 @@ def settle_all(db: Session):
         ).all()
 
         for pred in preds:
-            result = settle_prediction(pred, fixture.home_goals, fixture.away_goals)
+            result = settle_prediction(pred, fixture.home_goals, fixture.away_goals, fixture.ht_home_goals, fixture.ht_away_goals)      
             pred.status = result
             pred.settled_at = datetime.now(timezone.utc)
             counts[result] = counts.get(result, 0) + 1

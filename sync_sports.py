@@ -228,12 +228,15 @@ def score_matrix(lh, la, max_goals=6):
 
 def confidence_from_prob(prob):
     score = int(round(prob * 100))
-    if score >= 75: label = "High"
-    elif score >= 60: label = "Medium"
-    else: label = "Low"
+    if score >= 75:
+        label = "High"
+    elif score >= 60:
+        label = "Medium"
+    else:
+        label = "Low"
     return score, label
 
-def safe_market_predictions(scores: dict, home_team: str, away_team: str):
+def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: float, la: float):
     p00 = scores.get((0, 0), 0.0)
     over_05 = clamp_prob(1.0 - p00)
     over_15 = clamp_prob(1.0 - p00 - scores.get((1, 0), 0.0) - scores.get((0, 1), 0.0))
@@ -260,9 +263,16 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
     home_multi_scores = [(2, 0), (2, 1), (3, 0), (3, 1)]
     away_multi_scores = [(0, 2), (1, 2), (0, 3), (1, 3)]
     draw_multi_scores = [(1, 1), (2, 2)]
-    home_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in home_multi_scores))
-    away_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in away_multi_scores))
-    draw_multi_prob = clamp_prob(sum(scores.get(s, 0) for s in draw_multi_scores))
+    home_multi_low = clamp_prob(sum(scores.get(s, 0) for s in [(2, 0), (2, 1)]))
+    home_multi_high = clamp_prob(sum(scores.get(s, 0) for s in [(3, 0), (3, 1)]))
+    away_multi_low = clamp_prob(sum(scores.get(s, 0) for s in [(0, 1), (0, 2)]))
+    away_multi_high = clamp_prob(sum(scores.get(s, 0) for s in [(1, 2), (1, 3)]))
+    draw_multi = clamp_prob(sum(scores.get(s, 0) for s in draw_multi_scores))
+    home_margin_2 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h - a >= 2))
+    away_margin_2 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a - h >= 2))
+    ht_home_multi = clamp_prob(sum(scores.get(s, 0) for s in [(2, 0), (2, 1)]))
+    ht_away_multi = clamp_prob(sum(scores.get(s, 0) for s in [(0, 1), (0, 2)]))
+    ht_draw_multi = clamp_prob(sum(scores.get(s, 0) for s in [(0, 0), (1, 1)]))
 
     return [
         ("OVER_05", "Over 0.5 Goals", over_05), ("OVER_15", "Over 1.5 Goals", over_15),
@@ -277,9 +287,16 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str):
         ("AWAY_OVER_15", f"{away_team} To Score Over 1.5 Goals", away_over_15),
         ("WIN_TO_NIL_HOME", f"{home_team} To Win To Nil", win_nil_home),
         ("WIN_TO_NIL_AWAY", f"{away_team} To Win To Nil", win_nil_away),
-        ("HOME_MULTI", f"{home_team} Multiscore", home_multi_prob),
-        ("AWAY_MULTI", f"{away_team} Multiscore", away_multi_prob),
-        ("DRAW_MULTI", "Draw Multiscore (1-1, 2-2)", draw_multi_prob),
+                ("HOME_MULTI_LOW", f"{home_team} Multiscore (1-0, 2-0)", home_multi_low),
+        ("HOME_MULTI_HIGH", f"{home_team} Multiscore (2-1, 3-1)", home_multi_high),
+        ("AWAY_MULTI_LOW", f"{away_team} Multiscore (0-1, 0-2)", away_multi_low),
+        ("AWAY_MULTI_HIGH", f"{away_team} Multiscore (1-2, 1-3)", away_multi_high),
+        ("DRAW_MULTI", "Draw Multiscore (1-1, 2-2)", draw_multi),
+        ("HOME_MARGIN_2", f"{home_team} To Win By 2+ Goals", home_margin_2),
+        ("AWAY_MARGIN_2", f"{away_team} To Win By 2+ Goals", away_margin_2),
+        ("HT_HOME_MULTI", f"{home_team} To Lead At HT (1-0, 2-0)", ht_home_multi),
+        ("HT_AWAY_MULTI", f"{away_team} To Lead At HT (0-1, 0-2)", ht_away_multi),
+        ("HT_DRAW_MULTI", "Draw At HT (0-0, 1-1)", ht_draw_multi),
     ]
 
 def correct_score_predictions(scores):
@@ -308,14 +325,26 @@ def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality)
     if existing: return False
     scores = score_matrix(lh, la)
     created = 0
-    for market, pick, prob in safe_market_predictions(scores, fixture.home_team, fixture.away_team):
+    for market, pick, prob in safe_market_predictions(scores, fixture.home_team, fixture.away_team, lh, la):
         score, label = confidence_from_prob(prob)
         db.add(make_prediction(fixture_id=fixture.id, market=market, pick=pick, probability=round(prob, 4), confidence_score=score, confidence_label=label, status="pending"))
         created += 1
     cs = correct_score_predictions(scores)
-    score, label = confidence_from_prob(cs["probability"])
-    db.add(make_prediction(fixture_id=fixture.id, market="CS", pick=cs["pick"], probability=round(cs["probability"], 4), confidence_score=score, confidence_label=label, status="pending"))
-    created += 1
+
+    # Only show correct score when the model is genuinely confident.
+    # 15%+ on a single exact score is elite. 75% does not exist in football.
+    if cs["probability"] >= 0.15:
+        score, label = confidence_from_prob(cs["probability"])
+        db.add(make_prediction(
+            fixture_id=fixture.id,
+            market="CS",
+            pick=cs["pick"],
+            probability=round(cs["probability"], 4),
+            confidence_score=score,
+            confidence_label=label,
+            status="pending",
+        ))
+        created += 1
     htft = ht_ft_predictions(lh, la)
     if htft:
         pick, prob = htft[0]

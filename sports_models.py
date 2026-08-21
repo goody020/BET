@@ -19,6 +19,8 @@ class Fixture(Base):
     status = Column(String(20), index=True)
     home_goals = Column(Integer)
     away_goals = Column(Integer)
+    ht_home_goals = Column(Integer)
+    ht_away_goals = Column(Integer)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 

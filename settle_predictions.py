@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import SessionLocal
 from sports_models import Fixture, Prediction
-
+from espn_adapter import EXTRA_LEAGUES, fetch_scoreboard, espn_fixture_id
 load_dotenv()
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY", "").strip()
@@ -73,8 +73,51 @@ def update_fixtures_from_api(db: Session):
                 fixture.status = "FT"
                 updated_count += 1
 
-    db.commit()
+        db.commit()
+
+    try:
+        updated_count += update_espn_fixtures(db)
+    except Exception as e:
+        print(f"ESPN settlement error: {e}")
+
     return updated_count
+
+
+def update_espn_fixtures(db: Session):
+    today = date.today()
+    updated = 0
+
+    for days_back in (0, 1, 2):
+        d = today - timedelta(days=days_back)
+
+        for slug in EXTRA_LEAGUES:
+            events = fetch_scoreboard(slug, d)
+
+            for ev in events:
+                if ev.get("state") != "post":
+                    continue
+
+                fid = espn_fixture_id(ev.get("id"))
+                if not fid:
+                    continue
+
+                fixture = db.query(Fixture).filter(Fixture.api_fixture_id == fid).first()
+
+                if not fixture or fixture.home_goals is not None:
+                    continue
+
+                if ev.get("home_score") is None or ev.get("away_score") is None:
+                    continue
+
+                fixture.home_goals = ev.get("home_score")
+                fixture.away_goals = ev.get("away_score")
+                fixture.ht_home_goals = ev.get("home_ht")
+                fixture.ht_away_goals = ev.get("away_ht")
+                fixture.status = "FT"
+                updated += 1
+
+    db.commit()
+    return updated
 
 
 def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_home=None, ht_away=None):

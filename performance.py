@@ -2,76 +2,88 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app import get_db
-from sports_models import Prediction
-from picks import BANKER_MARKETS, HIGH_ODDS_MARKETS, SAFE_MARKET_LABELS
+from sports_models import Prediction, Fixture
 
 
 router = APIRouter(prefix="/performance", tags=["performance"])
 
+HIGH_ODDS_SET = {
+    "HOME_MULTI_LOW", "HOME_MULTI_HIGH", "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
+    "DRAW_MULTI", "HOME_MARGIN_2", "AWAY_MARGIN_2",
+    "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
+    "CS", "HTFT",
+}
+
 
 @router.get("/summary")
 def performance_summary(db: Session = Depends(get_db)):
-    settled = db.query(Prediction).filter(
+    rows = db.query(Prediction, Fixture).join(
+        Fixture, Prediction.fixture_id == Fixture.id
+    ).filter(
         Prediction.status.in_(["won", "lost", "void"])
     ).all()
 
-    wins = sum(1 for p in settled if p.status == "won")
-    losses = sum(1 for p in settled if p.status == "lost")
-    voids = sum(1 for p in settled if p.status == "void")
-    decided = wins + losses
+    # One main pick per match = highest probability settled prediction
+    main = {}
+    for pred, fixture in rows:
+        cur = main.get(fixture.id)
+        if cur is None or pred.probability > cur.probability:
+            main[fixture.id] = pred
 
-    hit_rate = round((wins / decided) * 100, 1) if decided else 0.0
+    won = sum(1 for p in main.values() if p.status == "won")
+    lost = sum(1 for p in main.values() if p.status == "lost")
+    void = sum(1 for p in main.values() if p.status == "void")
+    total = won + lost
+    win_rate = round(won / total * 100, 1) if total else 0.0
 
-    bankers = [p for p in settled if p.market in BANKER_MARKETS]
-    b_wins = sum(1 for p in bankers if p.status == "won")
-    b_decided = sum(1 for p in bankers if p.status in ("won", "lost"))
-    banker_hit = round((b_wins / b_decided) * 100, 1) if b_decided else 0.0
+    # High-odds record (all settled high-odds picks)
+    ho = [p for p, f in rows if p.market in HIGH_ODDS_SET and p.status in ("won", "lost")]
+    ho_won = sum(1 for p in ho if p.status == "won")
+    ho_total = len(ho)
+    ho_rate = round(ho_won / ho_total * 100, 1) if ho_total else 0.0
 
-    high = [p for p in settled if p.market in HIGH_ODDS_MARKETS or p.market in ("CS", "HTFT")]
-    h_wins = sum(1 for p in high if p.status == "won")
-    h_decided = sum(1 for p in high if p.status in ("won", "lost"))
-    high_hit = round((h_wins / h_decided) * 100, 1) if h_decided else 0.0
+    # Last 10 form + streak (newest first)
+    ordered = sorted(main.values(), key=lambda p: p.id, reverse=True)
+    last_10 = [p.status[0].upper() for p in ordered if p.status in ("won", "lost")][:10]
 
-    by_market = {}
-    for p in settled:
-        m = by_market.setdefault(p.market, {"total": 0, "wins": 0, "losses": 0})
+    streak = 0
+    for s in last_10:
+        if not last_10 or s != last_10[0]:
+            break
+        streak += 1
+    streak_text = f"{streak}{'W' if last_10 and last_10[0] == 'W' else 'L'}" if last_10 else "0"
+
+    # Per-market breakdown (all settled picks)
+    market_stats = {}
+    for pred, fixture in rows:
+        if pred.status not in ("won", "lost"):
+            continue
+        m = market_stats.setdefault(pred.market, {"market": pred.market, "total": 0, "won": 0})
         m["total"] += 1
-        if p.status in ("won", "lost"):
-            m[p.status] += 1
+        if pred.status == "won":
+            m["won"] += 1
 
-    market_stats = []
-    for market, m in sorted(by_market.items(), key=lambda kv: kv[1]["total"], reverse=True)[:10]:
-        dec = m["wins"] + m["losses"]
-        market_stats.append({
-            "market": market,
-            "label": SAFE_MARKET_LABELS.get(market, market),
-            "total": m["total"],
-            "wins": m["wins"],
-            "losses": m["losses"],
-            "hit_rate": round((m["wins"] / dec) * 100, 1) if dec else 0.0,
-        })
+    market_list = sorted(market_stats.values(), key=lambda m: m["total"], reverse=True)
+    for m in market_list:
+        m["win_rate"] = round(m["won"] / m["total"] * 100, 1) if m["total"] else 0.0
 
-    return {
-        "total": len(settled),
-        "settled": len(settled),
-        "wins": wins,
-        "losses": losses,
-        "voids": voids,
-        "hit_rate": banker_hit,
-        "win_rate": banker_hit,
-        "overall_hit_rate": hit_rate,
-        "bankers": {
-            "total": len(bankers),
-            "wins": b_wins,
-            "losses": b_decided - b_wins,
-            "hit_rate": banker_hit,
-        },
-        "high_odds": {
-            "total": len(high),
-            "wins": h_wins,
-            "losses": h_decided - h_wins,
-            "hit_rate": high_hit,
-        },
-        "market_stats": market_stats,
-        "markets": market_stats,
+    payload = {
+        "total": total,
+        "won": won,
+        "lost": lost,
+        "void": void,
+        "win_rate": win_rate,
+        "strike_rate": win_rate,
+        "accuracy": win_rate,
+        "settled": total,
+        "predictions": total,
+        "high_odds_won": ho_won,
+        "high_odds_total": ho_total,
+        "high_odds_rate": ho_rate,
+        "last_10": last_10,
+        "current_streak": streak_text,
+        "market_stats": market_list,
     }
+    payload["summary"] = payload
+
+    return payload

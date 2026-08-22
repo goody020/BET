@@ -80,14 +80,16 @@ def apply_exclusion(query, prediction_ids):
     return query
 
 
-def merge_selected(existing, new_rows, limit, max_per_fixture=1):
+def merge_selected(existing, new_rows, limit, max_per_fixture=1, max_per_market=None):
     selected = list(existing)
     fixture_counts = {}
+    market_counts = {}
     excluded_ids = set()
 
     for pred, fixture in selected:
         excluded_ids.add(pred.id)
         fixture_counts[fixture.id] = fixture_counts.get(fixture.id, 0) + 1
+        market_counts[pred.market] = market_counts.get(pred.market, 0) + 1
 
     for pred, fixture in new_rows:
         if len(selected) >= limit:
@@ -96,14 +98,15 @@ def merge_selected(existing, new_rows, limit, max_per_fixture=1):
             continue
         if fixture_counts.get(fixture.id, 0) >= max_per_fixture:
             continue
+        if max_per_market and market_counts.get(pred.market, 0) >= max_per_market:
+            continue
 
         selected.append((pred, fixture))
         excluded_ids.add(pred.id)
         fixture_counts[fixture.id] = fixture_counts.get(fixture.id, 0) + 1
+        market_counts[pred.market] = market_counts.get(pred.market, 0) + 1
 
     return selected
-
-
 def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False):
     if locked:
         return {
@@ -169,7 +172,7 @@ def fetch_safe_picks(db: Session, limit: int = 7):
         .limit(150)
         .all()
     )
-    selected = merge_selected(selected, rows, limit)
+    selected = merge_selected(selected, rows, limit, max_per_market=2)
 
     if len(selected) < 5:
         existing_ids = [pred.id for pred, _ in selected]
@@ -180,7 +183,7 @@ def fetch_safe_picks(db: Session, limit: int = 7):
         )
         query = apply_exclusion(query, existing_ids)
         rows = query.order_by(Prediction.probability.desc()).limit(150).all()
-        selected = merge_selected(selected, rows, limit)
+        selected = merge_selected(selected, rows, limit, max_per_market=2)
 
     if len(selected) < 3:
         existing_ids = [pred.id for pred, _ in selected]
@@ -189,10 +192,9 @@ def fetch_safe_picks(db: Session, limit: int = 7):
         )
         query = apply_exclusion(query, existing_ids)
         rows = query.order_by(Prediction.probability.desc()).limit(150).all()
-        selected = merge_selected(selected, rows, limit)
+        selected = merge_selected(selected, rows, limit, max_per_market=2)
 
     return selected[:limit]
-
 
 def fetch_high_odds(db: Session, limit: int = 4):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
@@ -204,19 +206,20 @@ def fetch_high_odds(db: Session, limit: int = 4):
             Fixture.status.in_(UPCOMING_STATUSES),
             Prediction.market.in_(HIGH_ODDS_MARKETS),
             Prediction.status == "pending",
-            Prediction.confidence_score >= 40,
             Fixture.kickoff >= cutoff,
         )
         .order_by(Prediction.probability.desc())
-        .limit(60)
+        .limit(120)
         .all()
     )
 
-    return merge_selected([], rows, limit, max_per_fixture=1)
+    return merge_selected([], rows, limit, max_per_fixture=1, max_per_market=1)
 
 
 def fetch_bonus(db: Session, market: str, limit: int = 2):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+
+    min_prob = {"CS": 0.15, "HTFT": 0.20}.get(market, 0.0)
 
     rows = (
         db.query(Prediction, Fixture)
@@ -225,19 +228,15 @@ def fetch_bonus(db: Session, market: str, limit: int = 2):
             Fixture.status.in_(UPCOMING_STATUSES),
             Prediction.market == market,
             Prediction.status == "pending",
-            Prediction.confidence_score >= 55,
+            Prediction.probability >= min_prob,
             Fixture.kickoff >= cutoff,
         )
-        .order_by(
-            Prediction.confidence_score.desc(),
-            Prediction.probability.desc(),
-        )
+        .order_by(Prediction.probability.desc())
         .limit(40)
         .all()
     )
 
     return merge_selected([], rows, limit, max_per_fixture=1)
-
 
 @router.get("/today")
 def picks_today(user: User = Depends(get_current_user), db: Session = Depends(get_db)):

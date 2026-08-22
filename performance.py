@@ -1,134 +1,77 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app import get_db, get_current_user, User
+from app import get_db
 from sports_models import Prediction
+from picks import BANKER_MARKETS, HIGH_ODDS_MARKETS, SAFE_MARKET_LABELS
 
 
 router = APIRouter(prefix="/performance", tags=["performance"])
 
-SAFE_MARKETS = [
-    "OVER_05",
-    "OVER_15",
-    "OVER_25",
-    "UNDER_35",
-    "UNDER_45",
-    "BTTS_YES",
-    "BTTS_NO",
-    "DC_1X",
-    "DC_X2",
-    "DC_12",
-    "HOME_DNB",
-    "AWAY_DNB",
-]
 
-BONUS_MARKETS = [
-    "CS",
-    "HTFT",
-]
+@router.get("/summary")
+def performance_summary(db: Session = Depends(get_db)):
+    settled = db.query(Prediction).filter(
+        Prediction.status.in_(["won", "lost", "void"])
+    ).all()
 
-MARKET_LABELS = {
-    "OVER_05": "Over 0.5 Goals",
-    "OVER_15": "Over 1.5 Goals",
-    "OVER_25": "Over 2.5 Goals",
-    "UNDER_35": "Under 3.5 Goals",
-    "UNDER_45": "Under 4.5 Goals",
-    "BTTS_YES": "BTTS Yes",
-    "BTTS_NO": "BTTS No",
-    "DC_1X": "Home or Draw",
-    "DC_X2": "Away or Draw",
-    "DC_12": "Any Team To Win",
-    "HOME_DNB": "Home Draw No Bet",
-    "AWAY_DNB": "Away Draw No Bet",
-    "CS": "Correct Score",
-    "HTFT": "HT/FT",
-}
-
-
-def market_stats(db: Session, market: str):
-    settled_statuses = ("won", "lost", "void")
-
-    base_query = db.query(Prediction).filter(
-        Prediction.market == market,
-        Prediction.status.in_(settled_statuses),
-    )
-
-    total = base_query.count()
-
-    wins = base_query.filter(
-        Prediction.status == "won",
-    ).count()
-
-    losses = base_query.filter(
-        Prediction.status == "lost",
-    ).count()
-
-    voids = base_query.filter(
-        Prediction.status == "void",
-    ).count()
-
+    wins = sum(1 for p in settled if p.status == "won")
+    losses = sum(1 for p in settled if p.status == "lost")
+    voids = sum(1 for p in settled if p.status == "void")
     decided = wins + losses
 
-    hit_rate = round((wins / decided) * 100, 1) if decided > 0 else 0.0
+    hit_rate = round((wins / decided) * 100, 1) if decided else 0.0
+
+    bankers = [p for p in settled if p.market in BANKER_MARKETS]
+    b_wins = sum(1 for p in bankers if p.status == "won")
+    b_decided = sum(1 for p in bankers if p.status in ("won", "lost"))
+    banker_hit = round((b_wins / b_decided) * 100, 1) if b_decided else 0.0
+
+    high = [p for p in settled if p.market in HIGH_ODDS_MARKETS or p.market in ("CS", "HTFT")]
+    h_wins = sum(1 for p in high if p.status == "won")
+    h_decided = sum(1 for p in high if p.status in ("won", "lost"))
+    high_hit = round((h_wins / h_decided) * 100, 1) if h_decided else 0.0
+
+    by_market = {}
+    for p in settled:
+        m = by_market.setdefault(p.market, {"total": 0, "wins": 0, "losses": 0})
+        m["total"] += 1
+        if p.status in ("won", "lost"):
+            m[p.status] += 1
+
+    market_stats = []
+    for market, m in sorted(by_market.items(), key=lambda kv: kv[1]["total"], reverse=True)[:10]:
+        dec = m["wins"] + m["losses"]
+        market_stats.append({
+            "market": market,
+            "label": SAFE_MARKET_LABELS.get(market, market),
+            "total": m["total"],
+            "wins": m["wins"],
+            "losses": m["losses"],
+            "hit_rate": round((m["wins"] / dec) * 100, 1) if dec else 0.0,
+        })
 
     return {
-        "market": market,
-        "market_label": MARKET_LABELS.get(market, market),
-        "total_settled": total,
+        "total": len(settled),
+        "settled": len(settled),
         "wins": wins,
         "losses": losses,
         "voids": voids,
-        "hit_rate": hit_rate,
-    }
-
-
-@router.get("/summary")
-def performance_summary(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    settled_statuses = ("won", "lost", "void")
-
-    base_query = db.query(Prediction).filter(
-        Prediction.status.in_(settled_statuses),
-    )
-
-    total_settled = base_query.count()
-
-    total_wins = base_query.filter(
-        Prediction.status == "won",
-    ).count()
-
-    total_losses = base_query.filter(
-        Prediction.status == "lost",
-    ).count()
-
-    total_voids = base_query.filter(
-        Prediction.status == "void",
-    ).count()
-
-    decided = total_wins + total_losses
-
-    overall_hit_rate = round((total_wins / decided) * 100, 1) if decided > 0 else 0.0
-
-    safe_stats = []
-
-    for market in SAFE_MARKETS:
-        safe_stats.append(market_stats(db, market))
-
-    bonus_stats = []
-
-    for market in BONUS_MARKETS:
-        bonus_stats.append(market_stats(db, market))
-
-    return {
-        "plan": user.plan,
-        "total_settled": total_settled,
-        "wins": total_wins,
-        "losses": total_losses,
-        "voids": total_voids,
-        "decided": decided,
-        "overall_hit_rate": overall_hit_rate,
-        "safe_markets": safe_stats,
-        "bonus_markets": bonus_stats,
+        "hit_rate": banker_hit,
+        "win_rate": banker_hit,
+        "overall_hit_rate": hit_rate,
+        "bankers": {
+            "total": len(bankers),
+            "wins": b_wins,
+            "losses": b_decided - b_wins,
+            "hit_rate": banker_hit,
+        },
+        "high_odds": {
+            "total": len(high),
+            "wins": h_wins,
+            "losses": h_decided - h_wins,
+            "hit_rate": high_hit,
+        },
+        "market_stats": market_stats,
+        "markets": market_stats,
     }

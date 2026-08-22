@@ -393,6 +393,11 @@ def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality)
         ))
         created += 1
 
+        htft = ht_ft_predictions(lh, la)
+    if htft:
+        # Product rule: never sell D/D (the boring low-odds default).
+        filtered = [opt for opt in htft if opt[0] != "D/D"]
+        pick, prob = (filtered or htft)[0]
     htft = ht_ft_predictions(lh, la)
     if htft:
         pick, prob = htft[0]

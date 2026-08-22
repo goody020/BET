@@ -30,35 +30,27 @@ SAFE_MARKET_LABELS = {
     "CS": "Correct Score", "HTFT": "HT/FT",
 }
 
-# Main board: balanced markets (decent odds + high hit rate)
-BANKER_MARKETS = {
+# FREE: high hit-rate markets. Free users win with these and trust you.
+FREE_MARKETS = {
+    "OVER_05", "OVER_15", "OVER_25", "UNDER_35", "UNDER_45",
+    "BTTS_YES", "BTTS_NO",
     "HOME_WIN", "AWAY_WIN",
     "DC_1X", "DC_X2", "DC_12",
     "HOME_DNB", "AWAY_DNB",
-    "OVER_15", "OVER_25", "UNDER_35",
-    "BTTS_YES", "BTTS_NO", "BTTS_O25",
     "HOME_OVER_15", "AWAY_OVER_15",
-    "WIN_TO_NIL_HOME", "WIN_TO_NIL_AWAY",
-}
-# Top leagues free users can see unlocked
-TOP_LEAGUES = {
-    "premier league", "la liga", "primera division", "primera división",
-    "bundesliga", "serie a", "ligue 1",
-    "uefa champions league", "champions league",
 }
 
-
-def is_top_league(league_name):
-    return (league_name or "").strip().lower() in TOP_LEAGUES
-
-
-# Premium section: high-odds cards
-HIGH_ODDS_MARKETS = {
+# PREMIUM: specialised high-odds markets (HT options, multiscores, CS, HTFT)
+PREMIUM_MARKETS = {
+    "BTTS_O25", "WIN_TO_NIL_HOME", "WIN_TO_NIL_AWAY",
     "HOME_MULTI_LOW", "HOME_MULTI_HIGH",
     "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
     "DRAW_MULTI", "HOME_MARGIN_2", "AWAY_MARGIN_2",
     "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
+    "CS", "HTFT",
 }
+
+HIGH_ODDS_ONLY = PREMIUM_MARKETS - {"CS", "HTFT"}
 
 
 def format_kickoff(dt):
@@ -69,26 +61,6 @@ def format_kickoff(dt):
         dt = dt.replace(tzinfo=timezone.utc)
 
     return dt.isoformat()
-
-
-def base_safe_query(db: Session):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
-
-    return db.query(Prediction, Fixture).join(
-        Fixture, Prediction.fixture_id == Fixture.id,
-    ).filter(
-        Fixture.status.in_(UPCOMING_STATUSES),
-        Prediction.market.in_(BANKER_MARKETS),
-        Prediction.status == "pending",
-        Prediction.confidence_score >= 60,
-        Fixture.kickoff >= cutoff,
-    )
-
-
-def apply_exclusion(query, prediction_ids):
-    if prediction_ids:
-        return query.filter(~Prediction.id.in_(prediction_ids))
-    return query
 
 
 def merge_selected(existing, new_rows, limit, max_per_fixture=1, max_per_market=None):
@@ -118,6 +90,8 @@ def merge_selected(existing, new_rows, limit, max_per_fixture=1, max_per_market=
         market_counts[pred.market] = market_counts.get(pred.market, 0) + 1
 
     return selected
+
+
 def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False):
     if locked:
         return {
@@ -169,43 +143,27 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
     }
 
 
-def fetch_safe_picks(db: Session, limit: int = 7):
-    selected = []
+def fetch_free_picks(db: Session, limit: int = 10):
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
 
     rows = (
-        base_safe_query(db)
+        db.query(Prediction, Fixture)
+        .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
-            Prediction.probability >= 0.72,
-            Prediction.probability <= 0.88,
-            Prediction.confidence_score >= 68,
+            Fixture.status.in_(UPCOMING_STATUSES),
+            Prediction.market.in_(FREE_MARKETS),
+            Prediction.status == "pending",
+            Prediction.confidence_score >= 60,
+            Prediction.probability <= 0.90,
+            Fixture.kickoff >= cutoff,
         )
         .order_by(Prediction.probability.desc())
-        .limit(150)
+        .limit(200)
         .all()
     )
-    selected = merge_selected(selected, rows, limit, max_per_market=2)
 
-    if len(selected) < 5:
-        existing_ids = [pred.id for pred, _ in selected]
-        query = base_safe_query(db).filter(
-            Prediction.probability >= 0.66,
-            Prediction.probability <= 0.90,
-            Prediction.confidence_score >= 64,
-        )
-        query = apply_exclusion(query, existing_ids)
-        rows = query.order_by(Prediction.probability.desc()).limit(150).all()
-        selected = merge_selected(selected, rows, limit, max_per_market=2)
+    return merge_selected([], rows, limit, max_per_fixture=1, max_per_market=3)
 
-    if len(selected) < 3:
-        existing_ids = [pred.id for pred, _ in selected]
-        query = base_safe_query(db).filter(
-            Prediction.probability <= 0.92,
-        )
-        query = apply_exclusion(query, existing_ids)
-        rows = query.order_by(Prediction.probability.desc()).limit(150).all()
-        selected = merge_selected(selected, rows, limit, max_per_market=2)
-
-    return selected[:limit]
 
 def fetch_high_odds(db: Session, limit: int = 4):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
@@ -215,7 +173,7 @@ def fetch_high_odds(db: Session, limit: int = 4):
         .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
             Fixture.status.in_(UPCOMING_STATUSES),
-            Prediction.market.in_(HIGH_ODDS_MARKETS),
+            Prediction.market.in_(HIGH_ODDS_ONLY),
             Prediction.status == "pending",
             Fixture.kickoff >= cutoff,
         )
@@ -249,50 +207,24 @@ def fetch_bonus(db: Session, market: str, limit: int = 2):
 
     return merge_selected([], rows, limit, max_per_fixture=1)
 
+
 @router.get("/today")
 def picks_today(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    premium_safe_rows = fetch_safe_picks(db, limit=7)
+    free_rows = fetch_free_picks(db, limit=10)
     high_odds_rows = fetch_high_odds(db, limit=4)
     cs_rows = fetch_bonus(db, "CS", limit=2)
     htft_rows = fetch_bonus(db, "HTFT", limit=2)
 
-    safe_picks = []
-    bonus_picks = []
-
     if user.is_premium:
-        for pred, fixture in premium_safe_rows:
-            safe_picks.append(serialize_pick(pred, fixture, db, locked=False))
-
-        for pred, fixture in high_odds_rows + cs_rows + htft_rows:
-            bonus_picks.append(serialize_pick(pred, fixture, db, locked=False))
-
         return {
             "plan": user.plan,
-            "safe_picks": safe_picks,
-            "bonus_picks": bonus_picks,
+            "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
+            "bonus_picks": [serialize_pick(p, f, db) for p, f in high_odds_rows + cs_rows + htft_rows],
         }
 
-    unlocked_free = []
-    locked_rows = []
-
-    for pred, fixture in premium_safe_rows:
-        if len(unlocked_free) < 3 and is_top_league(fixture.league):
-            unlocked_free.append((pred, fixture))
-        else:
-            locked_rows.append((pred, fixture))
-
-    # Fallback: if no top-league pick unlocked, unlock the best one anyway
-    if not unlocked_free and locked_rows:
-        unlocked_free.append(locked_rows.pop(0))
-
-    safe_picks = [serialize_pick(p, f, db, locked=False) for p, f in unlocked_free]
-    safe_picks += [serialize_pick(p, f, db, locked=True) for p, f in locked_rows]
-
-    for pred, fixture in high_odds_rows + cs_rows + htft_rows:
-        bonus_picks.append(serialize_pick(pred, fixture, db, locked=True))
-
+    # Free users: all free-market picks unlocked, premium section locked
     return {
         "plan": user.plan,
-        "safe_picks": safe_picks,
-        "bonus_picks": bonus_picks,
+        "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
+        "bonus_picks": [serialize_pick(p, f, db, locked=True) for p, f in high_odds_rows + cs_rows + htft_rows],
     }

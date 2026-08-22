@@ -12,7 +12,6 @@
       color-scheme: dark;
       --gold: #d4af37;
       --gold-light: #f4d03f;
-      --gold-dark: #b8941f;
       --gold-glow: rgba(212, 175, 55, 0.4);
       --dark: #0a0e1a;
       --darker: #050810;
@@ -304,7 +303,7 @@
     .skeleton-text { height: 20px; margin-bottom: 12px; }
     .skeleton-text:last-child { width: 60%; }
 
-      @media (max-width: 768px) {
+    @media (max-width: 768px) {
       .wrap { padding: 16px 12px; }
       header { padding: 12px 14px; flex-wrap: wrap; }
       #userArea { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
@@ -651,7 +650,7 @@
         } else {
           adminPanel.classList.add("hidden");
         }
-        
+
         loadPicks();
         loadPerformance();
         loadStatsStrip();
@@ -786,7 +785,7 @@
     function pickCard(p) {
       const kickoff = p.kickoff ? new Date(p.kickoff).toLocaleString() : "";
 
-      let html = `<div class="pick-card ${p.locked ? 'locked' : ''}">`;
+      let html = `<div class="pick-card">`;
 
       html += `
         <div class="pick-header">
@@ -796,7 +795,7 @@
           </div>
           <div class="pick-kickoff">
             ${escapeHTML(kickoff)}<br />
-            ${escapeHTML({"SCHEDULED":"Upcoming","TIMED":"Upcoming","NS":"Upcoming","TBD":"Upcoming","NOT_STARTED":"Upcoming","FT":"Finished"}[p.status] || p.status || "")}
+            ${escapeHTML(p.status || "")}
           </div>
         </div>
       `;
@@ -907,7 +906,6 @@
       `;
 
       if (data.last_10 && data.last_10.length) {
-           if (data.last_10 && data.last_10.length) {
         html += `<div style="margin-bottom:28px;"><strong style="color:var(--gold); font-size:16px; margin-bottom:12px; display:block;">Last 10 Form</strong><div class="form-dots">`;
         data.last_10.forEach(function(s) {
           const cls = s === 'W' ? 'form-dot-w' : s === 'L' ? 'form-dot-l' : 'form-dot-v';
@@ -918,16 +916,6 @@
 
       el.innerHTML = html;
     }
-
-    $("refreshPerformanceBtn").addEventListener("click", loadPerformance);   html += `<div style="margin-bottom:28px;"><strong style="color:var(--gold); font-size:16px; margin-bottom:12px; display:block;">Last 10 Form</strong><div class="form-dots">`;
-        data.last_10.forEach(function(s) {
-          const cls = s === 'W' ? 'form-dot-w' : s === 'L' ? 'form-dot-l' : 'form-dot-v';
-          html += `<div class="form-dot ${cls}">${s}</div>`;
-        });
-        html += `</div></div>`;
-      }
-
-            el.innerHTML = html;
 
     $("refreshPerformanceBtn").addEventListener("click", loadPerformance);
 
@@ -961,7 +949,6 @@
       }
     }
 
-    // ADMIN PANEL FUNCTIONS
     $("adminSyncBtn").addEventListener("click", async function () {
       try {
         const res = await apiFetch("/admin/automation/sync", { method: "POST" });

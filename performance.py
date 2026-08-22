@@ -84,6 +84,17 @@ def performance_summary(db: Session = Depends(get_db)):
         "current_streak": streak_text,
         "market_stats": market_list,
     }
-    payload["summary"] = payload
+    payload["summary"] = {
+        "total": total,
+        "won": won,
+        "lost": lost,
+        "void": void,
+        "win_rate": win_rate,
+        "high_odds_won": ho_won,
+        "high_odds_total": ho_total,
+        "high_odds_rate": ho_rate,
+        "last_10": last_10,
+        "current_streak": streak_text,
+    }
 
     return payload

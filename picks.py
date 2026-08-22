@@ -40,6 +40,17 @@ BANKER_MARKETS = {
     "HOME_OVER_15", "AWAY_OVER_15",
     "WIN_TO_NIL_HOME", "WIN_TO_NIL_AWAY",
 }
+# Top leagues free users can see unlocked
+TOP_LEAGUES = {
+    "premier league", "la liga", "primera division", "primera división",
+    "bundesliga", "serie a", "ligue 1",
+    "uefa champions league", "champions league",
+}
+
+
+def is_top_league(league_name):
+    return (league_name or "").strip().lower() in TOP_LEAGUES
+
 
 # Premium section: high-odds cards
 HIGH_ODDS_MARKETS = {
@@ -262,44 +273,20 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
         }
 
     unlocked_free = []
-    locked_preview = []
-    included_prediction_ids = []
-    unlocked_fixture_ids = []
+    locked_rows = []
 
-    for index, (pred, fixture) in enumerate(premium_safe_rows):
-        included_prediction_ids.append(pred.id)
-
-        if index == 0:
-            unlocked_free.append(serialize_pick(pred, fixture, db, locked=False))
-            unlocked_fixture_ids.append(fixture.id)
+    for pred, fixture in premium_safe_rows:
+        if len(unlocked_free) < 3 and is_top_league(fixture.league):
+            unlocked_free.append((pred, fixture))
         else:
-            locked_preview.append(serialize_pick(pred, fixture, db, locked=True))
+            locked_rows.append((pred, fixture))
 
-    extra_query = base_safe_query(db).filter(
-        Prediction.probability >= 0.66,
-        Prediction.probability < 0.76,
-    )
-    extra_query = apply_exclusion(extra_query, included_prediction_ids)
+    # Fallback: if no top-league pick unlocked, unlock the best one anyway
+    if not unlocked_free and locked_rows:
+        unlocked_free.append(locked_rows.pop(0))
 
-    if unlocked_fixture_ids:
-        extra_query = extra_query.filter(~Fixture.id.in_(unlocked_fixture_ids))
-
-    extra_rows = extra_query.order_by(Prediction.probability.desc()).limit(80).all()
-    extra_selected = merge_selected([], extra_rows, limit=3, max_per_fixture=1)
-    extra_picks = [
-        serialize_pick(pred, fixture, db, locked=False)
-        for pred, fixture in extra_selected
-    ]
-
-    safe_picks = unlocked_free + extra_picks + locked_preview
-
-    if not safe_picks:
-        fallback_rows = base_safe_query(db).order_by(Prediction.probability.desc()).limit(80).all()
-        fallback_selected = merge_selected([], fallback_rows, limit=3, max_per_fixture=1)
-        safe_picks = [
-            serialize_pick(pred, fixture, db, locked=False)
-            for pred, fixture in fallback_selected
-        ]
+    safe_picks = [serialize_pick(p, f, db, locked=False) for p, f in unlocked_free]
+    safe_picks += [serialize_pick(p, f, db, locked=True) for p, f in locked_rows]
 
     for pred, fixture in high_odds_rows + cs_rows + htft_rows:
         bonus_picks.append(serialize_pick(pred, fixture, db, locked=True))

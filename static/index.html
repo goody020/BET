@@ -304,12 +304,27 @@
     .skeleton-text { height: 20px; margin-bottom: 12px; }
     .skeleton-text:last-child { width: 60%; }
 
-    @media (max-width: 768px) {
-      .hero { padding: 40px 24px; }
-      .hero h1 { font-size: 36px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-      .stat-card { padding: 20px; }
-      .card { padding: 24px; }
+      @media (max-width: 768px) {
+      .wrap { padding: 16px 12px; }
+      header { padding: 12px 14px; flex-wrap: wrap; }
+      #userArea { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+      .hero { padding: 32px 18px; border-radius: 20px; }
+      .hero h1 { font-size: 30px; }
+      .hero p { font-size: 15px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 16px; }
+      .stat-ring { width: 64px; height: 64px; }
+      .stat-value { font-size: 18px; }
+      .card { padding: 18px 14px; border-radius: 16px; }
+      .card h2 { font-size: 20px; flex-wrap: wrap; gap: 10px; }
+      .pick-header { flex-direction: column; gap: 8px; }
+      .pick-kickoff { text-align: left; }
+      .pick-teams { font-size: 17px; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+      th, td { padding: 10px 8px; font-size: 13px; }
+      .form-dots { flex-wrap: wrap; }
+      .btn { padding: 12px 18px; font-size: 14px; }
+      .btn-small { padding: 8px 14px; font-size: 12px; }
     }
 
     .hidden { display: none !important; }
@@ -892,6 +907,7 @@
       `;
 
       if (data.last_10 && data.last_10.length) {
+           if (data.last_10 && data.last_10.length) {
         html += `<div style="margin-bottom:28px;"><strong style="color:var(--gold); font-size:16px; margin-bottom:12px; display:block;">Last 10 Form</strong><div class="form-dots">`;
         data.last_10.forEach(function(s) {
           const cls = s === 'W' ? 'form-dot-w' : s === 'L' ? 'form-dot-l' : 'form-dot-v';
@@ -900,16 +916,18 @@
         html += `</div></div>`;
       }
 
-      if (data.market_stats && data.market_stats.length) {
-        html += `<h3 style="color:var(--gold); font-size:18px; margin:28px 0 16px 0;">Market Breakdown</h3><table>`;
-        data.market_stats.slice(0, 10).forEach(function (item) {
-          html += `<tr><td>${escapeHTML(item.market)}</td><td style="text-align:right;">${escapeHTML(item.won)}</td><td style="text-align:right;">${escapeHTML(item.total)}</td><td style="text-align:right; font-weight:700; color:var(--gold);">${escapeHTML(item.win_rate)}%</td></tr>`;
-        });
-        html += `</table>`;
-      }
-
       el.innerHTML = html;
     }
+
+    $("refreshPerformanceBtn").addEventListener("click", loadPerformance);   html += `<div style="margin-bottom:28px;"><strong style="color:var(--gold); font-size:16px; margin-bottom:12px; display:block;">Last 10 Form</strong><div class="form-dots">`;
+        data.last_10.forEach(function(s) {
+          const cls = s === 'W' ? 'form-dot-w' : s === 'L' ? 'form-dot-l' : 'form-dot-v';
+          html += `<div class="form-dot ${cls}">${s}</div>`;
+        });
+        html += `</div></div>`;
+      }
+
+            el.innerHTML = html;
 
     $("refreshPerformanceBtn").addEventListener("click", loadPerformance);
 

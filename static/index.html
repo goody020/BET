@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
 <style>
 /* ============================================================
-   VALUEBETS ANALYTICS — "GOLD TERMINAL" DESIGN SYSTEM
+   VALUEBETS ANALYTICS — "GOLD TERMINAL" v3 (LANDING + TABBED APP)
    ============================================================ */
 :root{
   color-scheme: dark;
@@ -47,14 +47,9 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
-  margin:0;
-  background:var(--bg-0);
-  color:var(--text-1);
-  font-family:var(--body);
-  font-size:16px;
-  line-height:1.6;
-  overflow-x:hidden;
-  -webkit-font-smoothing:antialiased;
+  margin:0;background:var(--bg-0);color:var(--text-1);
+  font-family:var(--body);font-size:16px;line-height:1.6;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;
 }
 ::selection{background:var(--gold-2);color:var(--gold-ink)}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -64,7 +59,6 @@ a{color:var(--gold-1)}
 button{font-family:inherit}
 :focus-visible{outline:2px solid var(--gold-1);outline-offset:2px;border-radius:6px}
 
-/* film grain + ambient gold bloom */
 .fx-grain{
   position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
@@ -72,7 +66,7 @@ button{font-family:inherit}
 .fx-aurora{
   position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(900px 520px at 78% -8%, rgba(212,175,55,.13), transparent 62%),
+    radial-gradient(900px 520px at 78% -8%, rgba(212,155,55,.13), transparent 62%),
     radial-gradient(700px 480px at -10% 32%, rgba(212,175,55,.06), transparent 60%),
     radial-gradient(760px 560px at 55% 118%, rgba(47,208,140,.05), transparent 62%);
 }
@@ -98,6 +92,7 @@ button{font-family:inherit}
 }
 .site-nav a:hover{color:var(--gold-1);background:rgba(212,175,55,.07)}
 .head-user{display:flex;align-items:center;gap:10px;margin-left:12px}
+.head-user.alone{margin-left:auto}
 
 /* ============ BUTTONS ============ */
 .btn{
@@ -121,10 +116,7 @@ button{font-family:inherit}
   transform:skewX(-20deg);transition:left .55s var(--ease);
 }
 .btn-gold:hover::after{left:130%}
-.btn-ghost{
-  background:transparent;color:var(--text-1);
-  border:1px solid rgba(236,208,126,.28);
-}
+.btn-ghost{background:transparent;color:var(--text-1);border:1px solid rgba(236,208,126,.28)}
 .btn-ghost:hover{border-color:var(--gold-1);color:var(--gold-1);background:rgba(212,175,55,.06)}
 .btn-soft{background:rgba(255,255,255,.06);color:var(--text-1);border:1px solid var(--line-soft)}
 .btn-soft:hover{background:rgba(255,255,255,.1)}
@@ -141,28 +133,18 @@ section{scroll-margin-top:90px}
 .sec-num{font-family:var(--mono);font-size:12px;color:var(--gold-3);letter-spacing:.2em}
 .sec-title{font-family:var(--disp);font-weight:700;font-size:clamp(22px,3vw,30px);letter-spacing:.02em;margin:0;text-transform:uppercase}
 .sec-rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);min-width:40px;align-self:center}
-.sec-sub{color:var(--text-2);font-size:14.5px;max-width:56ch;margin:-16px 0 30px}
 
-/* reveal on scroll */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
 .reveal.in{opacity:1;transform:none}
 .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}
 .reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
 
-/* ============ HERO ============ */
+/* ============ HERO (landing) ============ */
 .hero{position:relative;padding:74px 0 56px;overflow:hidden}
 .hero-pitch{
   position:absolute;top:50%;left:58%;transform:translateY(-50%);
   width:min(860px,90vw);opacity:.5;pointer-events:none;z-index:-1;
 }
-.hero-eyebrow{
-  display:inline-flex;align-items:center;gap:10px;
-  font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;color:var(--gold-1);
-  border:1px solid var(--line);border-radius:100px;padding:8px 16px;margin-bottom:28px;
-  background:rgba(212,175,55,.05);
-}
-.hero-eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--win);box-shadow:0 0 10px var(--win);animation:blink 2.4s ease-in-out infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
 .hero h1{
   font-family:var(--disp);font-weight:700;
@@ -178,11 +160,7 @@ section{scroll-margin-top:90px}
   filter:drop-shadow(0 6px 34px rgba(212,175,55,.22));
 }
 @keyframes sheen{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
-.hero h1 .ghost{
-  color:transparent;
-  -webkit-text-stroke:1.5px rgba(245,242,233,.34);
-  position:relative;
-}
+.hero h1 .ghost{color:transparent;-webkit-text-stroke:1.5px rgba(245,242,233,.34);position:relative}
 .hero h1 .ghost::after{
   content:"";position:absolute;left:2%;right:2%;top:52%;height:3px;
   background:linear-gradient(90deg,var(--gold-1),var(--gold-2));
@@ -197,8 +175,8 @@ section{scroll-margin-top:90px}
 .hero-trust{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--text-3);text-transform:uppercase}
 .hero-trust span::before{content:"▸ ";color:var(--gold-3)}
 
-/* hero visual: orbital record board */
-.board{position:relative;aspect-ratio:1/1;max-width:440px;margin:0 auto;width:100%}
+/* hero visual: pure brand mark (no duplicated numbers) */
+.board{position:relative;aspect-ratio:1/1;max-width:420px;margin:0 auto;width:100%}
 .board-ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--line)}
 .board-ring.r2{inset:13.5%;border-style:dashed;animation:spin 70s linear infinite}
 .board-ring.r3{inset:27%;opacity:.6}
@@ -207,33 +185,19 @@ section{scroll-margin-top:90px}
   position:absolute;inset:36.5%;border-radius:50%;
   background:radial-gradient(circle at 34% 30%,#1c2130,var(--bg-1) 70%);
   border:1px solid rgba(236,208,126,.3);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 70px rgba(212,175,55,.14),inset 0 0 40px rgba(212,175,55,.06);
-  text-align:center;padding:12px;
 }
-.board-core .k{font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--gold-2)}
-.board-core .v{font-family:var(--disp);font-weight:700;font-size:clamp(26px,3.4vw,38px);line-height:1;color:var(--text-1)}
-.board-chip{
-  position:absolute;font-family:var(--mono);font-size:11px;letter-spacing:.06em;
-  background:rgba(10,12,18,.92);border:1px solid var(--line);
-  border-radius:10px;padding:8px 13px;color:var(--text-2);white-space:nowrap;
-  box-shadow:0 12px 30px -12px rgba(0,0,0,.8);
-  animation:floaty 5.5s ease-in-out infinite;
-}
-.board-chip b{color:var(--gold-1);font-weight:600}
-.board-chip.c1{top:7%;left:2%}
-.board-chip.c2{top:38%;right:-3%;animation-delay:1.2s}
-.board-chip.c3{bottom:8%;left:9%;animation-delay:2.4s}
-@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.board-core svg{width:74px;height:74px;filter:drop-shadow(0 0 20px rgba(212,175,55,.55))}
 
 /* results ticker */
 .ticker{
-  margin-top:60px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+  margin-top:56px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
   overflow:hidden;position:relative;background:rgba(255,255,255,.015);
   mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
 }
-.ticker-track{display:inline-flex;gap:0;padding:13px 0;animation:tick 46s linear infinite;will-change:transform}
+.ticker-track{display:inline-flex;padding:13px 0;animation:tick 46s linear infinite;will-change:transform}
 .ticker:hover .ticker-track{animation-play-state:paused}
 @keyframes tick{to{transform:translateX(-50%)}}
 .tick-item{
@@ -267,38 +231,86 @@ section{scroll-margin-top:90px}
 .ring circle{fill:none;stroke-width:7;stroke-linecap:round}
 .ring .rb{stroke:rgba(255,255,255,.06)}
 .ring .rf{stroke:url(#goldGrad);stroke-dasharray:326.73;stroke-dashoffset:326.73;transition:stroke-dashoffset 1.4s var(--ease);filter:drop-shadow(0 0 6px rgba(212,175,55,.4))}
-.ring-num{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:var(--disp);font-weight:700;font-size:23px;color:var(--text-1);
-}
+.ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:23px;color:var(--text-1)}
 .ring-cap{font-family:var(--mono);font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--text-3)}
 .stat-sub{font-size:12px;color:var(--text-3);margin-top:6px}
 
-/* ============ CARDS ============ */
-.card{
-  background:linear-gradient(165deg,var(--bg-2),var(--bg-1));
-  border:1px solid var(--line-soft);border-radius:var(--r-lg);
-  padding:30px;position:relative;
-}
+/* ============ NOTICE / GATE ============ */
 .notice{
   display:flex;gap:12px;align-items:center;
   border:1px solid var(--line);background:rgba(212,175,55,.05);
-  border-radius:var(--r-md);padding:14px 18px;
-  font-size:13.5px;color:var(--text-2);
+  border-radius:var(--r-md);padding:14px 18px;font-size:13.5px;color:var(--text-2);
 }
 .notice b{color:var(--gold-1);font-weight:600}
 .notice svg{width:18px;height:18px;flex-shrink:0}
+.gate{
+  text-align:center;padding:56px 26px;border-radius:var(--r-lg);
+  border:1px dashed rgba(236,208,126,.35);
+  background:radial-gradient(600px 240px at 50% -40%,rgba(212,175,55,.1),transparent 70%),var(--bg-1);
+}
+.gate svg{width:40px;height:40px;margin-bottom:16px}
+.gate h3{font-family:var(--disp);font-size:clamp(20px,2.6vw,26px);margin:0 0 10px;letter-spacing:.02em}
+.gate p{color:var(--text-2);max-width:52ch;margin:0 auto 26px}
+
+/* ============ PREMIUM PANEL ============ */
+.premium{
+  display:grid;grid-template-columns:1.05fr .95fr;
+  border-radius:var(--r-lg);overflow:hidden;border:1px solid rgba(236,208,126,.3);
+  background:radial-gradient(700px 300px at 0% 0%,rgba(212,175,55,.1),transparent 55%),linear-gradient(160deg,#14100a,var(--bg-1) 55%);
+}
+.prem-copy{padding:48px}
+.prem-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--gold-1);text-transform:uppercase;margin-bottom:16px;display:block}
+.prem-copy h3{font-family:var(--disp);font-weight:700;font-size:clamp(26px,3.4vw,38px);margin:0 0 16px;line-height:1.08;letter-spacing:-.01em;text-transform:uppercase}
+.prem-copy h3 em{font-style:normal;color:transparent;-webkit-text-stroke:1.2px rgba(246,215,118,.75)}
+.prem-copy p{color:var(--text-2);font-size:15px;margin:0 0 22px;max-width:44ch}
+.prem-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:11px}
+.prem-list li{display:flex;gap:11px;align-items:center;font-size:14.5px;color:var(--text-1)}
+.prem-list svg{width:16px;height:16px;flex-shrink:0}
+.prem-price{
+  padding:48px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
+  border-left:1px solid rgba(236,208,126,.18);
+  background:radial-gradient(400px 300px at 50% 0%,rgba(212,175,55,.12),transparent 65%);
+}
+.prem-amount{font-family:var(--disp);font-weight:700;font-size:clamp(44px,5vw,60px);color:var(--gold-1);letter-spacing:-.02em;line-height:1;filter:drop-shadow(0 8px 30px rgba(212,175,55,.25))}
+.prem-per{font-family:var(--mono);font-size:11px;letter-spacing:.28em;color:var(--text-3);text-transform:uppercase;margin:12px 0 30px}
+.prem-fine{margin-top:16px;font-size:12.5px;color:var(--text-3)}
+.prem-honest{margin-top:22px;font-size:13px;color:var(--text-2);border-top:1px dashed var(--line);padding-top:18px;max-width:34ch}
+.prem-honest b{color:var(--gold-1)}
+
+/* ============ APP MODE: TAB BAR + PANELS ============ */
+.tabbar{
+  position:sticky;top:65px;z-index:40;
+  display:flex;gap:6px;
+  background:rgba(8,10,15,.92);backdrop-filter:blur(14px);
+  border:1px solid var(--line-soft);border-radius:14px;padding:6px;
+  margin:22px 0 26px;
+}
+.tab{
+  flex:1;border:none;background:transparent;color:var(--text-2);
+  font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;
+  padding:13px 10px;border-radius:10px;cursor:pointer;transition:all .25s;
+  display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;
+}
+.tab:hover{color:var(--text-1)}
+.tab.active{
+  background:linear-gradient(135deg,var(--gold-1),var(--gold-2));color:var(--gold-ink);
+  box-shadow:0 8px 22px -8px var(--gold-glow);
+}
+.tab .cnt{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.07);color:var(--text-3)}
+.tab.active .cnt{background:rgba(0,0,0,.18);color:var(--gold-ink)}
+.tabpanel{animation:tabin .35s var(--ease)}
+@keyframes tabin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.app-head{display:flex;align-items:center;gap:14px;margin:6px 0 22px;flex-wrap:wrap}
+.app-head h2{font-family:var(--disp);font-weight:700;font-size:clamp(20px,2.6vw,26px);margin:0;text-transform:uppercase;letter-spacing:.02em}
+.app-head .sec-num{font-size:12px}
+.app-head .spacer{flex:1}
 
 /* ============ PICKS ============ */
 .board-tabs{display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap}
-.board-label{
-  font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
-  color:var(--gold-1);display:flex;align-items:center;gap:9px;
-}
+.board-label{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-1);display:flex;align-items:center;gap:9px}
 .board-label::before{content:"";width:22px;height:1px;background:var(--gold-3)}
 .board-note{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
 .picks-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.picks-grid.single{grid-template-columns:1fr}
 .pick{
   background:linear-gradient(165deg,var(--bg-2),var(--bg-1));
   border:1px solid var(--line-soft);border-radius:var(--r-lg);
@@ -326,10 +338,7 @@ section{scroll-margin-top:90px}
 }
 .pick-call .mk{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-3);display:block;margin-bottom:3px}
 .pick-call .pk{font-family:var(--disp);font-weight:700;font-size:17px;color:var(--gold-1)}
-.chip{
-  display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;
-  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
 .chip-confidence{background:rgba(212,175,55,.1);color:var(--gold-1);border:1px solid var(--line)}
 .chip-value{background:var(--win-dim);color:var(--win);border:1px solid rgba(47,208,140,.35)}
 .pick-figures{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
@@ -338,10 +347,10 @@ section{scroll-margin-top:90px}
 .pf.grow{flex:1;min-width:140px}
 .meter{height:6px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:8px;position:relative}
 .meter i{
-  display:block;height:100%;border-radius:4px;
+  display:block;height:100%;border-radius:4px;width:0;
   background:linear-gradient(90deg,var(--gold-3),var(--gold-2) 60%,var(--gold-1));
   box-shadow:0 0 12px rgba(212,175,55,.4);
-  width:0;transition:width 1.2s var(--ease);position:relative;overflow:hidden;
+  transition:width 1.2s var(--ease);position:relative;overflow:hidden;
 }
 .meter i::after{
   content:"";position:absolute;inset:0;
@@ -349,42 +358,25 @@ section{scroll-margin-top:90px}
   animation:shimmer 2.6s infinite;
 }
 @keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
-
-/* locked premium pick */
 .pick-locked{border-style:dashed;border-color:rgba(236,208,126,.3)}
 .lock-body{
   margin-top:6px;border-radius:var(--r-md);padding:26px 18px;text-align:center;
-  background:
-    radial-gradient(220px 120px at 50% -20%,rgba(212,175,55,.14),transparent 70%),
-    rgba(212,175,55,.04);
+  background:radial-gradient(220px 120px at 50% -20%,rgba(212,175,55,.14),transparent 70%),rgba(212,175,55,.04);
   border:1px solid var(--line);
 }
 .lock-body svg{width:26px;height:26px;margin-bottom:10px}
 .lock-body .lk-t{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--gold-1);letter-spacing:.06em;text-transform:uppercase}
 .lock-body .lk-s{font-size:13px;color:var(--text-2);margin:6px auto 16px;max-width:30ch}
 
-/* gate for logged-out visitors */
-.gate{
-  text-align:center;padding:60px 26px;border-radius:var(--r-lg);
-  border:1px dashed rgba(236,208,126,.35);
-  background:radial-gradient(600px 240px at 50% -40%,rgba(212,175,55,.1),transparent 70%),var(--bg-1);
+/* upsell strip (high-odds tab, free users) */
+.upsell{
+  display:flex;align-items:center;gap:18px;justify-content:space-between;flex-wrap:wrap;
+  border:1px solid rgba(236,208,126,.35);border-radius:var(--r-lg);
+  background:radial-gradient(500px 160px at 0% 0%,rgba(212,175,55,.12),transparent 60%),var(--bg-1);
+  padding:22px 26px;margin-bottom:22px;
 }
-.gate svg{width:40px;height:40px;margin-bottom:16px}
-.gate h3{font-family:var(--disp);font-size:clamp(20px,2.6vw,26px);margin:0 0 10px;letter-spacing:.02em}
-.gate p{color:var(--text-2);max-width:52ch;margin:0 auto 26px}
-
-/* skeleton + empty */
-.skeleton{
-  background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04));
-  background-size:200% 100%;animation:load 1.5s infinite;border-radius:var(--r-md);
-}
-@keyframes load{from{background-position:200% 0}to{background-position:-200% 0}}
-.sk-card{height:190px}
-.empty{
-  text-align:center;padding:56px 20px;color:var(--text-3);
-  font-size:14.5px;border:1px dashed var(--line-soft);border-radius:var(--r-lg);
-}
-.empty b{display:block;color:var(--text-2);font-family:var(--disp);font-size:16px;margin-bottom:6px}
+.upsell .u-t{font-family:var(--disp);font-weight:700;font-size:18px}
+.upsell .u-s{font-size:13.5px;color:var(--text-2)}
 
 /* ============ RESULTS LEDGER ============ */
 .ledger{border:1px solid var(--line-soft);border-radius:var(--r-lg);overflow:hidden}
@@ -409,10 +401,7 @@ section{scroll-margin-top:90px}
 .lr-pick b{color:var(--text-1);font-weight:600}
 .lr-score{font-family:var(--disp);font-weight:700;font-size:16px;text-align:right}
 .lr-out{text-align:right}
-.out{
-  display:inline-block;padding:5px 10px;border-radius:7px;
-  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em;
-}
+.out{display:inline-block;padding:5px 10px;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em}
 .out-won{color:var(--win);background:var(--win-dim);border:1px solid rgba(47,208,140,.3)}
 .out-lost{color:var(--loss);background:var(--loss-dim);border:1px solid rgba(242,97,107,.3)}
 .out-void{color:var(--text-3);background:rgba(255,255,255,.05);border:1px solid var(--line-soft)}
@@ -424,33 +413,21 @@ section{scroll-margin-top:90px}
   border:1px solid var(--line-soft);border-radius:var(--r-lg);padding:44px;
   position:relative;overflow:hidden;
 }
-.perf-panel::before{
-  content:"";position:absolute;top:-140px;right:-140px;width:420px;height:420px;border-radius:50%;
-  background:radial-gradient(circle,rgba(212,175,55,.09),transparent 65%);
-}
+.perf-panel::before{content:"";position:absolute;top:-140px;right:-140px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(212,175,55,.09),transparent 65%)}
 .perf-dial{position:relative;width:230px;height:230px;flex-shrink:0}
 .perf-dial svg{width:100%;height:100%;transform:rotate(-90deg)}
 .perf-dial circle{fill:none;stroke-linecap:round}
 .perf-dial .db{stroke:rgba(255,255,255,.05);stroke-width:12}
-.perf-dial .df{
-  stroke:url(#goldGrad);stroke-width:12;stroke-dasharray:326.73;stroke-dashoffset:326.73;
-  transition:stroke-dashoffset 1.6s var(--ease);filter:drop-shadow(0 0 10px rgba(212,175,55,.45));
-}
-.perf-dial .dnum{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-}
+.perf-dial .df{stroke:url(#goldGrad);stroke-width:12;stroke-dasharray:326.73;stroke-dashoffset:326.73;transition:stroke-dashoffset 1.6s var(--ease);filter:drop-shadow(0 0 10px rgba(212,175,55,.45))}
+.perf-dial .dnum{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .perf-dial .dnum b{font-family:var(--disp);font-weight:700;font-size:52px;line-height:1;letter-spacing:-.02em}
 .perf-dial .dnum span{font-family:var(--mono);font-size:9.5px;letter-spacing:.3em;color:var(--text-3);text-transform:uppercase}
 .perf-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 30px}
 .pstat .lab{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px}
 .pstat .val{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.01em;line-height:1}
 .pstat .sub{font-size:12.5px;color:var(--text-3);margin-top:5px}
-.pstat .val.gold{color:var(--gold-1)}
 .form-dots{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
-.form-dot{
-  width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:12px;font-weight:600;transition:transform .25s var(--ease);
-}
+.form-dot{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;transition:transform .25s var(--ease)}
 .form-dot:hover{transform:translateY(-3px) scale(1.06)}
 .fd-w{background:rgba(47,208,140,.16);color:var(--win);border:1px solid rgba(47,208,140,.4)}
 .fd-l{background:rgba(242,97,107,.14);color:var(--loss);border:1px solid rgba(242,97,107,.4)}
@@ -458,46 +435,17 @@ section{scroll-margin-top:90px}
 .perf-cap{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.08em;border-top:1px solid var(--line-soft);padding-top:20px}
 .perf-cap b{color:var(--gold-2)}
 
-/* ============ PREMIUM ============ */
-.premium{
-  display:grid;grid-template-columns:1.05fr .95fr;gap:0;
-  border-radius:var(--r-lg);overflow:hidden;border:1px solid rgba(236,208,126,.3);
-  background:
-    radial-gradient(700px 300px at 0% 0%,rgba(212,175,55,.1),transparent 55%),
-    linear-gradient(160deg,#14100a,var(--bg-1) 55%);
-}
-.prem-copy{padding:48px}
-.prem-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--gold-1);text-transform:uppercase;margin-bottom:16px;display:block}
-.prem-copy h3{font-family:var(--disp);font-weight:700;font-size:clamp(26px,3.4vw,38px);margin:0 0 16px;line-height:1.08;letter-spacing:-.01em;text-transform:uppercase}
-.prem-copy h3 em{font-style:normal;color:transparent;-webkit-text-stroke:1.2px rgba(246,215,118,.75)}
-.prem-copy p{color:var(--text-2);font-size:15px;margin:0 0 22px;max-width:44ch}
-.prem-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:11px}
-.prem-list li{display:flex;gap:11px;align-items:center;font-size:14.5px;color:var(--text-1)}
-.prem-list svg{width:16px;height:16px;flex-shrink:0}
-.prem-price{
-  padding:48px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
-  border-left:1px solid rgba(236,208,126,.18);
-  background:radial-gradient(400px 300px at 50% 0%,rgba(212,175,55,.12),transparent 65%);
-}
-.prem-amount{font-family:var(--disp);font-weight:700;font-size:clamp(44px,5vw,60px);color:var(--gold-1);letter-spacing:-.02em;line-height:1;filter:drop-shadow(0 8px 30px rgba(212,175,55,.25))}
-.prem-per{font-family:var(--mono);font-size:11px;letter-spacing:.28em;color:var(--text-3);text-transform:uppercase;margin:12px 0 30px}
-.prem-fine{margin-top:16px;font-size:12.5px;color:var(--text-3)}
-.prem-honest{margin-top:22px;font-size:13px;color:var(--text-2);border-top:1px dashed var(--line);padding-top:18px;max-width:34ch}
-.prem-honest b{color:var(--gold-1)}
-
 /* ============ ADMIN ============ */
 .admin-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.card{background:linear-gradient(165deg,var(--bg-2),var(--bg-1));border:1px solid var(--line-soft);border-radius:var(--r-lg);padding:30px;position:relative}
 .table-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r-md)}
 table{width:100%;border-collapse:collapse;min-width:560px}
 th,td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--line-soft);font-size:13.5px}
 th{font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);background:rgba(255,255,255,.02)}
 tr:last-child td{border-bottom:none}
 
-/* ============ AUTH MODAL ============ */
-.modal{
-  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
-  background:rgba(3,4,7,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:20px;
-}
+/* ============ MODALS ============ */
+.modal{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(3,4,7,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:20px}
 .modal.open{display:flex;animation:fadein .3s var(--ease)}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 .modal-card{
@@ -508,48 +456,27 @@ tr:last-child td{border-bottom:none}
 }
 .modal-card.wide{max-width:760px}
 @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
-.modal-x{
-  position:absolute;top:16px;right:18px;width:34px;height:34px;border-radius:10px;
-  background:rgba(255,255,255,.05);border:1px solid var(--line-soft);color:var(--text-2);
-  font-size:18px;cursor:pointer;transition:all .2s;line-height:1;
-}
+.modal-x{position:absolute;top:16px;right:18px;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--line-soft);color:var(--text-2);font-size:18px;cursor:pointer;transition:all .2s;line-height:1}
 .modal-x:hover{color:var(--gold-1);border-color:var(--line)}
 .auth-head{text-align:center;margin-bottom:26px}
 .auth-head svg{width:44px;height:44px;margin-bottom:10px}
 .auth-head h3{font-family:var(--disp);font-weight:700;font-size:20px;margin:0 0 6px;letter-spacing:.04em;text-transform:uppercase}
 .auth-head p{margin:0;font-size:13.5px;color:var(--text-2)}
 .auth-tabs{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--line-soft);border-radius:12px;padding:5px;margin-bottom:24px}
-.auth-tab{
-  flex:1;padding:11px;border:none;border-radius:9px;background:transparent;color:var(--text-2);
-  font-family:var(--disp);font-weight:600;font-size:13.5px;cursor:pointer;letter-spacing:.04em;transition:all .25s;
-}
-.auth-tab.active{
-  background:linear-gradient(135deg,var(--gold-1),var(--gold-2));color:var(--gold-ink);
-  box-shadow:0 6px 18px -6px var(--gold-glow);
-}
+.auth-tab{flex:1;padding:11px;border:none;border-radius:9px;background:transparent;color:var(--text-2);font-family:var(--disp);font-weight:600;font-size:13.5px;cursor:pointer;letter-spacing:.04em;transition:all .25s}
+.auth-tab.active{background:linear-gradient(135deg,var(--gold-1),var(--gold-2));color:var(--gold-ink);box-shadow:0 6px 18px -6px var(--gold-glow)}
 .field{margin-bottom:16px}
 .field label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
-.field input{
-  width:100%;padding:14px 16px;border-radius:12px;font-size:15px;
-  background:rgba(0,0,0,.35);border:1px solid var(--line-soft);color:var(--text-1);
-  transition:border-color .25s,box-shadow .25s;font-family:var(--body);
-}
+.field input{width:100%;padding:14px 16px;border-radius:12px;font-size:15px;background:rgba(0,0,0,.35);border:1px solid var(--line-soft);color:var(--text-1);transition:border-color .25s,box-shadow .25s;font-family:var(--body)}
 .field input:focus{outline:none;border-color:var(--gold-2);box-shadow:0 0 0 3px rgba(212,175,55,.18)}
 .auth-fine{font-size:12px;color:var(--text-3);text-align:center;margin-top:18px}
-
-/* legal modal text */
 .legal-body h2{font-family:var(--disp);font-weight:700;color:var(--gold-1);margin:0 0 18px;letter-spacing:.03em;text-transform:uppercase;font-size:22px}
 .legal-body p{color:var(--text-2);font-size:14.5px}
 .legal-body strong{color:var(--text-1)}
 
-/* ============ MESSAGES ============ */
+/* ============ TOASTS ============ */
 .toast-zone{position:fixed;top:74px;right:22px;z-index:300;display:flex;flex-direction:column;gap:10px;max-width:min(420px,90vw)}
-.msg{
-  padding:15px 20px;border-radius:12px;font-size:14px;font-weight:500;
-  background:rgba(12,14,20,.96);backdrop-filter:blur(8px);
-  border:1px solid var(--line-soft);box-shadow:0 24px 50px -20px rgba(0,0,0,.85);
-  animation:slidein .4s var(--ease);
-}
+.msg{padding:15px 20px;border-radius:12px;font-size:14px;font-weight:500;background:rgba(12,14,20,.96);backdrop-filter:blur(8px);border:1px solid var(--line-soft);box-shadow:0 24px 50px -20px rgba(0,0,0,.85);animation:slidein .4s var(--ease)}
 @keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 .msg-success{border-color:rgba(47,208,140,.5);color:var(--win)}
 .msg-error{border-color:rgba(242,97,107,.5);color:var(--loss)}
@@ -560,39 +487,31 @@ tr:last-child td{border-bottom:none}
 /* ============ USER CHIP ============ */
 .user-chip{display:flex;align-items:center;gap:10px}
 .user-mail{font-family:var(--mono);font-size:11px;color:var(--text-3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.plan-badge{
-  font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
-  padding:5px 10px;border-radius:7px;
-}
+.plan-badge{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;padding:5px 10px;border-radius:7px}
 .plan-premium{background:linear-gradient(135deg,var(--gold-1),var(--gold-2));color:var(--gold-ink)}
 .plan-free{background:rgba(255,255,255,.07);color:var(--text-2);border:1px solid var(--line-soft)}
 
+/* skeleton + empty */
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04));background-size:200% 100%;animation:load 1.5s infinite;border-radius:var(--r-md)}
+@keyframes load{from{background-position:200% 0}to{background-position:-200% 0}}
+.sk-card{height:190px}
+.empty{text-align:center;padding:56px 20px;color:var(--text-3);font-size:14.5px;border:1px dashed var(--line-soft);border-radius:var(--r-lg)}
+.empty b{display:block;color:var(--text-2);font-family:var(--disp);font-size:16px;margin-bottom:6px}
+
 /* ============ FOOTER ============ */
-.site-foot{
-  margin-top:110px;border-top:1px solid var(--line-soft);
-  background:linear-gradient(180deg,transparent,rgba(212,175,55,.03));
-  position:relative;z-index:1;
-}
+.site-foot{margin-top:100px;border-top:1px solid var(--line-soft);background:linear-gradient(180deg,transparent,rgba(212,175,55,.03));position:relative;z-index:1}
 .foot-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;padding:56px 0 36px}
 .foot-brand p{color:var(--text-3);font-size:13px;max-width:36ch;margin:14px 0 0}
 .foot-links{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 .foot-links span{font-family:var(--mono);font-size:10px;letter-spacing:.26em;color:var(--text-3);text-transform:uppercase;margin-bottom:4px}
 .foot-links a{color:var(--text-2);text-decoration:none;font-size:14px;transition:color .2s}
 .foot-links a:hover{color:var(--gold-1)}
-.foot-base{
-  border-top:1px solid var(--line-soft);padding:22px 0 30px;
-  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;
-  font-size:12.5px;color:var(--text-3);
-}
-.age-badge{
-  font-family:var(--mono);font-weight:600;font-size:12px;color:var(--loss);
-  border:1.5px solid var(--loss);border-radius:8px;width:38px;height:38px;
-  display:inline-flex;align-items:center;justify-content:center;
-}
+.foot-base{border-top:1px solid var(--line-soft);padding:22px 0 30px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text-3)}
+.age-badge{font-family:var(--mono);font-weight:600;font-size:12px;color:var(--loss);border:1.5px solid var(--loss);border-radius:8px;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center}
 
 .hidden{display:none !important}
 .muted{color:var(--text-2)}
-.mono{font-family:var(--mono)}
+.text-center{text-align:center}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width:1020px){
@@ -615,6 +534,8 @@ tr:last-child td{border-bottom:none}
   .hero-ctas .btn{flex:1;justify-content:center}
   .sec{padding:56px 0 0}
   .picks-grid{grid-template-columns:1fr}
+  .tabbar{top:57px;overflow-x:auto}
+  .tab{min-width:max-content;padding:12px 15px;font-size:12px}
   .ledger-head{display:none}
   .ledger-row{grid-template-columns:1fr auto;gap:6px 14px;padding:18px}
   .lr-date{grid-column:1/-1;order:-1}
@@ -629,7 +550,7 @@ tr:last-child td{border-bottom:none}
   .prem-copy,.prem-price{padding:34px 22px}
   .perf-stats{grid-template-columns:repeat(2,1fr)}
   .toast-zone{right:12px;left:12px;max-width:none}
-  .board{max-width:340px}
+  .board{max-width:330px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
@@ -647,7 +568,6 @@ tr:last-child td{border-bottom:none}
 </head>
 
 <body>
-<!-- shared SVG defs -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -680,6 +600,20 @@ tr:last-child td{border-bottom:none}
     <symbol id="i-bolt" viewBox="0 0 24 24">
       <path d="M13 2 L4.5 13.5 H11 L9.6 22 L19 10 H12.4 Z" fill="url(#goldGrad)"/>
     </symbol>
+    <symbol id="i-ball" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 7 L16.4 10.2 L14.7 14.5 H9.3 L7.6 10.2 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M12 3 v4 M18.3 8.4 l-2 1.6 M19.6 14.4 l-3.1.4 M4.4 14.4 l3.1.4 M5.7 8.4 l2 1.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-ledger" viewBox="0 0 24 24">
+      <path d="M6 3.5 h9.5 L20 8 v12.5 H6 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M9 9.5 h6 M9 13 h6 M9 16.5 h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24">
+      <path d="M4 20 V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M4 20 h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M8 15.5 l3.5-4.5 3 2.5 4.5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -688,235 +622,285 @@ tr:last-child td{border-bottom:none}
 
 <!-- ============ HEADER ============ -->
 <header class="site-head">
-  <a class="brand" href="#top" aria-label="ValueBets Analytics home">
+  <a class="brand" href="/app" aria-label="ValueBets Analytics home">
     <svg aria-hidden="true"><use href="#i-logo"/></svg>
     <span class="brand-name">VALUEBETS<small>ANALYTICS</small></span>
   </a>
-  <nav class="site-nav" aria-label="Primary">
-    <a href="#picks">Picks</a>
-    <a href="#results">Results</a>
-    <a href="#performance">Performance</a>
+  <nav class="site-nav" id="siteNav" aria-label="Primary">
+    <a href="#proof">The Record</a>
     <a href="#premium">Premium</a>
   </nav>
   <div id="userArea" class="head-user"></div>
 </header>
 
-<main id="top" class="wrap">
+<main class="wrap">
   <div class="toast-zone" id="message" aria-live="polite"></div>
 
-  <!-- ============ HERO ============ -->
-  <section class="hero">
-    <svg class="hero-pitch" viewBox="0 0 860 860" aria-hidden="true">
-      <g fill="none" stroke="rgba(236,208,126,.16)" stroke-width="1.2">
-        <circle cx="430" cy="430" r="120"/>
-        <circle cx="430" cy="430" r="4" fill="rgba(236,208,126,.16)"/>
-        <line x1="430" y1="0" x2="430" y2="860"/>
-        <rect x="250" y="300" width="360" height="260" rx="4"/>
-        <rect x="340" y="370" width="180" height="120" rx="4"/>
-      </g>
-    </svg>
+  <!-- ================= LANDING MODE (guests) ================= -->
+  <div id="landing">
 
-    <div class="hero-grid">
-      <div>
-        <span class="hero-eyebrow reveal"><span class="dot"></span>FOOTBALL PREDICTION ENGINE · NIGERIA</span>
-        <h1 class="reveal d1">
-          <span class="line gold">Data</span>
-          <span class="line">Over</span>
-          <span class="line ghost">Emotion</span>
-        </h1>
-        <p class="hero-sub reveal d2">
-          Poisson goal models across <b>23 leagues</b>, settled and published every day.
-          Free <b>banker picks</b> for everyone. <b>High-odds cards</b> for premium members.
-          Every win and every loss is on the record below.
-        </p>
-        <div class="hero-ctas reveal d3">
-          <button class="btn btn-gold" type="button" data-open-auth>
+    <section class="hero">
+      <svg class="hero-pitch" viewBox="0 0 860 860" aria-hidden="true">
+        <g fill="none" stroke="rgba(236,208,126,.16)" stroke-width="1.2">
+          <circle cx="430" cy="430" r="120"/>
+          <circle cx="430" cy="430" r="4" fill="rgba(236,208,126,.16)"/>
+          <line x1="430" y1="0" x2="430" y2="860"/>
+          <rect x="250" y="300" width="360" height="260" rx="4"/>
+          <rect x="340" y="370" width="180" height="120" rx="4"/>
+        </g>
+      </svg>
+
+      <div class="hero-grid">
+        <div>
+          <h1 class="reveal">
+            <span class="line gold">Data</span>
+            <span class="line">Over</span>
+            <span class="line ghost">Emotion</span>
+          </h1>
+          <p class="hero-sub reveal d1">
+            Poisson goal models across <b>23 leagues</b>, settled and published every day.
+            Free <b>banker picks</b> for everyone. <b>High-odds cards</b> for premium members.
+            Every win and every loss is on the record.
+          </p>
+          <div class="hero-ctas reveal d2">
+            <button class="btn btn-gold" type="button" data-open-auth>
+              <svg aria-hidden="true"><use href="#i-bolt"/></svg>
+              Get Today's Free Picks
+            </button>
+            <a class="btn btn-ghost" href="#proof">See The Honest Record</a>
+          </div>
+          <div class="hero-trust reveal d3">
+            <span>Settled every 6 hours</span>
+            <span>Wins &amp; losses published</span>
+            <span>18+ · Play responsibly</span>
+          </div>
+        </div>
+
+        <div class="board reveal d2" aria-hidden="true">
+          <div class="board-ring"></div>
+          <div class="board-ring r2"></div>
+          <div class="board-ring r3"></div>
+          <div class="board-core"><svg><use href="#i-logo"/></svg></div>
+        </div>
+      </div>
+
+      <div class="ticker reveal d4">
+        <div class="ticker-track" id="tickerTrack"><span class="tick-empty">Loading the honest ledger…</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="proof" aria-label="The record" style="padding-top:44px">
+      <div class="sec-head reveal">
+        <span class="sec-num">01</span>
+        <h2 class="sec-title">The Record At A Glance</h2>
+        <span class="sec-rule"></span>
+      </div>
+      <div class="stats-grid" id="statsStrip">
+        <div class="stat reveal">
+          <div class="ring">
+            <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
+            <div class="ring-num" data-num>—</div>
+          </div>
+          <div class="ring-cap">Win Rate</div>
+          <div class="stat-sub">One main pick per match</div>
+        </div>
+        <div class="stat reveal d1">
+          <div class="ring">
+            <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
+            <div class="ring-num" data-num>—</div>
+          </div>
+          <div class="ring-cap">High-Odds</div>
+          <div class="stat-sub">Premium longshots landed</div>
+        </div>
+        <div class="stat reveal d2">
+          <div class="ring">
+            <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
+            <div class="ring-num" data-num>—</div>
+          </div>
+          <div class="ring-cap">Settled</div>
+          <div class="stat-sub">Predictions graded</div>
+        </div>
+        <div class="stat reveal d3">
+          <div class="ring">
+            <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
+            <div class="ring-num" data-num>—</div>
+          </div>
+          <div class="ring-cap">Streak</div>
+          <div class="stat-sub">Current run of form</div>
+        </div>
+      </div>
+
+      <div class="notice reveal" style="margin-top:22px">
+        <svg aria-hidden="true"><use href="#i-shield"/></svg>
+        <span><b>Informational only. 18+.</b> No guaranteed wins exist — anyone selling "sure odds" is lying to you. We publish probabilities and let you decide. Play responsibly.</span>
+      </div>
+    </section>
+
+    <section class="sec" style="padding-top:44px">
+      <div class="gate reveal">
+        <svg aria-hidden="true"><use href="#i-lock"/></svg>
+        <h3>Today's board is live inside</h3>
+        <p>Register in 20 seconds and unlock up to <strong>10 banker picks</strong> across 23 leagues — every day, no card required. Inside you'll find the picks board, the full results ledger and the detailed performance record.</p>
+        <button class="btn btn-gold" type="button" data-open-auth><svg aria-hidden="true"><use href="#i-bolt"/></svg> Unlock Free Picks</button>
+      </div>
+    </section>
+
+    <section class="sec" id="premium">
+      <div class="sec-head reveal">
+        <span class="sec-num">02</span>
+        <h2 class="sec-title">Premium</h2>
+        <span class="sec-rule"></span>
+      </div>
+      <div class="premium reveal">
+        <div class="prem-copy">
+          <span class="prem-eyebrow">The high-odds cards</span>
+          <h3>Bigger Odds.<br/><em>Same Honest Maths.</em></h3>
+          <p>Our model's longshot board — low probability by definition, priced fairly, tracked publicly.</p>
+          <ul class="prem-list">
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Multiscores — 1-0/2-0 bands, 2-1/3-1 bands</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Correct scores (only when the model sees real signal)</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time / full-time doubles</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time multis &amp; HT draws</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Win-by-2 margins</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Everything in the free board too</li>
+          </ul>
+        </div>
+        <div class="prem-price">
+          <div class="prem-amount">₦10,000</div>
+          <div class="prem-per">30 days · one-off payment</div>
+          <button id="upgradeBtn" class="btn btn-gold btn-block" type="button" data-upgrade>
             <svg aria-hidden="true"><use href="#i-bolt"/></svg>
-            Get Today's Free Picks
+            Upgrade To Premium
           </button>
-          <a class="btn btn-ghost" href="#performance">See The Honest Record</a>
-        </div>
-        <div class="hero-trust reveal d4">
-          <span>Settled every 6 hours</span>
-          <span>Wins &amp; losses published</span>
-          <span>18+ · Play responsibly</span>
+          <div class="prem-fine">Secure checkout via Paystack · Cards, transfer &amp; USSD</div>
+          <div class="prem-honest"><b>Straight talk:</b> high-odds cards land less often — that's the maths. We publish the hit rate either way.</div>
         </div>
       </div>
-
-      <div class="board reveal d2" aria-label="Live record summary">
-        <div class="board-ring"></div>
-        <div class="board-ring r2"></div>
-        <div class="board-ring r3"></div>
-        <div class="board-core">
-          <span class="k">WIN RATE</span>
-          <span class="v" id="boardWinRate">—</span>
-          <span class="k" id="boardRecord" style="color:var(--text-3)">SETTLED RECORD</span>
-        </div>
-        <div class="board-chip c1">STREAK <b id="chipStreak">—</b></div>
-        <div class="board-chip c2">HIGH-ODDS <b id="chipHighOdds">—</b></div>
-        <div class="board-chip c3">SETTLED <b id="chipSettled">—</b></div>
-      </div>
-    </div>
-
-    <div class="ticker reveal d4">
-      <div class="ticker-track" id="tickerTrack"><span class="tick-empty">Loading the honest ledger…</span></div>
-    </div>
-  </section>
-
-  <!-- ============ STAT RINGS ============ -->
-  <section class="sec" aria-label="Key numbers" style="padding-top:44px">
-    <div class="stats-grid" id="statsStrip">
-      <div class="stat reveal">
-        <div class="ring">
-          <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
-          <div class="ring-num" data-num>—</div>
-        </div>
-        <div class="ring-cap">Win Rate</div>
-        <div class="stat-sub">One main pick per match</div>
-      </div>
-      <div class="stat reveal d1">
-        <div class="ring">
-          <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
-          <div class="ring-num" data-num>—</div>
-        </div>
-        <div class="ring-cap">High-Odds</div>
-        <div class="stat-sub">Premium longshots landed</div>
-      </div>
-      <div class="stat reveal d2">
-        <div class="ring">
-          <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
-          <div class="ring-num" data-num>—</div>
-        </div>
-        <div class="ring-cap">Settled</div>
-        <div class="stat-sub">Predictions graded</div>
-      </div>
-      <div class="stat reveal d3">
-        <div class="ring">
-          <svg viewBox="0 0 120 120"><circle class="rb" cx="60" cy="60" r="52"/><circle class="rf" cx="60" cy="60" r="52"/></svg>
-          <div class="ring-num" data-num>—</div>
-        </div>
-        <div class="ring-cap">Streak</div>
-        <div class="stat-sub">Current run of form</div>
-      </div>
-    </div>
-
-    <div class="notice reveal" style="margin-top:22px">
-      <svg aria-hidden="true"><use href="#i-shield"/></svg>
-      <span><b>Informational only. 18+.</b> No guaranteed wins exist — anyone selling "sure odds" is lying to you. We publish probabilities and let you decide. Play responsibly.</span>
-    </div>
-  </section>
-
-  <!-- ============ PICKS ============ -->
-  <section class="sec" id="picks">
-    <div class="sec-head reveal">
-      <span class="sec-num">01</span>
-      <h2 class="sec-title">This Week's Picks</h2>
-      <span class="sec-rule"></span>
-      <button id="refreshPicksBtn" class="btn btn-soft btn-sm" type="button">
-        <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
-      </button>
-    </div>
-    <div id="picks" class="reveal">
-      <div class="picks-grid">
-        <div class="skeleton sk-card"></div>
-        <div class="skeleton sk-card"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ RESULTS ============ -->
-  <section class="sec" id="results">
-    <div class="sec-head reveal">
-      <span class="sec-num">02</span>
-      <h2 class="sec-title">Recent Results</h2>
-      <span class="sec-rule"></span>
-      <button id="refreshResultsBtn" class="btn btn-soft btn-sm" type="button">
-        <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
-      </button>
-    </div>
-    <p class="sec-sub reveal">The honest ledger. One main pick per match, graded by the settlement engine — wins and losses published side by side.</p>
-    <div id="results" class="reveal">
-      <div class="skeleton sk-card"></div>
-    </div>
-  </section>
-
-  <!-- ============ PERFORMANCE ============ -->
-  <section class="sec" id="performance">
-    <div class="sec-head reveal">
-      <span class="sec-num">03</span>
-      <h2 class="sec-title">Performance</h2>
-      <span class="sec-rule"></span>
-      <button id="refreshPerformanceBtn" class="btn btn-soft btn-sm" type="button">
-        <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
-      </button>
-    </div>
-    <div id="performance" class="reveal">
-      <div class="skeleton sk-card"></div>
-    </div>
-  </section>
-
-  <!-- ============ PREMIUM ============ -->
-  <section class="sec" id="premium">
-    <div class="sec-head reveal">
-      <span class="sec-num">04</span>
-      <h2 class="sec-title">Premium</h2>
-      <span class="sec-rule"></span>
-    </div>
-    <div class="premium reveal">
-      <div class="prem-copy">
-        <span class="prem-eyebrow">The high-odds cards</span>
-        <h3>Bigger Odds.<br/><em>Same Honest Maths.</em></h3>
-        <p>Our model's longshot board — low probability by definition, priced fairly, tracked publicly.</p>
-        <ul class="prem-list">
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Multiscores — 1-0/2-0 bands, 2-1/3-1 bands</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Correct scores (only when the model sees real signal)</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time / full-time doubles</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time multis &amp; HT draws</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Win-by-2 margins</li>
-          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Everything in the free board too</li>
-        </ul>
-      </div>
-      <div class="prem-price">
-        <div class="prem-amount">₦10,000</div>
-        <div class="prem-per">30 days · one-off payment</div>
-        <button id="upgradeBtn" class="btn btn-gold btn-block" type="button" data-upgrade>
-          <svg aria-hidden="true"><use href="#i-bolt"/></svg>
-          Upgrade To Premium
-        </button>
-        <div class="prem-fine">Secure checkout via Paystack · Cards, transfer &amp; USSD</div>
-        <div class="prem-honest"><b>Straight talk:</b> high-odds cards land less often — that's the maths. We publish the hit rate either way.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ OWNER'S ADVANTAGE (logged-out upgrade nudge) ============ -->
-  <div id="upgradeCard" class="card hidden" style="margin-top:56px">
-    <h2 class="sec-title" style="font-size:20px;margin:0 0 10px">Unlock Premium</h2>
-    <p class="muted" style="margin:0 0 18px">High-odds multiscore cards, correct scores, HT/FT predictions — ₦10,000 for 30 days.</p>
-    <button class="btn btn-gold" type="button" data-upgrade>Upgrade To Premium</button>
+    </section>
   </div>
+  <!-- ================= /LANDING MODE ================= -->
 
-  <!-- ============ ADMIN ============ -->
-  <section id="adminPanel" class="sec hidden">
-    <div class="sec-head">
-      <span class="sec-num">A</span>
-      <h2 class="sec-title">Admin Panel</h2>
-      <span class="sec-rule"></span>
+  <!-- ================= APP MODE (members) ================= -->
+  <div id="appView" class="hidden">
+    <div class="tabbar" role="tablist">
+      <button class="tab" data-tab="bankers" role="tab" type="button">
+        <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-ball"/></svg>
+        Banker Picks <span class="cnt" data-cnt="bankers">·</span>
+      </button>
+      <button class="tab" data-tab="high-odds" role="tab" type="button">
+        <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-bolt"/></svg>
+        High-Odds <span class="cnt" data-cnt="high-odds">·</span>
+      </button>
+      <button class="tab" data-tab="results" role="tab" type="button">
+        <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-ledger"/></svg>
+        Results
+      </button>
+      <button class="tab" data-tab="performance" role="tab" type="button">
+        <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-chart"/></svg>
+        Performance
+      </button>
+      <button class="tab hidden" data-tab="admin" id="adminTabBtn" role="tab" type="button">Admin</button>
     </div>
-    <div class="card">
-      <div class="admin-actions">
-        <button id="adminSyncBtn" class="btn btn-gold btn-sm" type="button">Force Sync</button>
-        <button id="adminSettleBtn" class="btn btn-gold btn-sm" type="button">Force Settle</button>
-        <button id="adminRunAllBtn" class="btn btn-gold btn-sm" type="button">Run All</button>
-        <button id="adminSyncOddsBtn" class="btn btn-gold btn-sm" type="button">Sync Odds</button>
-        <button id="adminLoadUsersBtn" class="btn btn-soft btn-sm" type="button">Users</button>
-        <button id="adminLoadPaymentsBtn" class="btn btn-soft btn-sm" type="button">Payments</button>
+
+    <!-- BANKER PICKS -->
+    <section id="panel-bankers" class="tabpanel hidden" role="tabpanel">
+      <div class="app-head">
+        <span class="sec-num">BOARD</span>
+        <h2>Banker Picks</h2>
+        <span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" type="button" data-refresh="picks">
+          <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
+        </button>
       </div>
-      <div id="adminStatus" class="muted" style="margin-bottom:20px;font-size:14px"></div>
-      <div id="adminUsers" style="margin-bottom:24px"></div>
-      <div id="adminPayments"></div>
-    </div>
-  </section>
+      <div class="board-tabs">
+        <span class="board-label">High hit-rate board</span>
+        <span class="board-note">Free for members · new picks after the 07:00 sync</span>
+      </div>
+      <div id="bankerPicks" class="picks-grid">
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+      </div>
+    </section>
+
+    <!-- HIGH-ODDS -->
+    <section id="panel-high-odds" class="tabpanel hidden" role="tabpanel">
+      <div class="app-head">
+        <span class="sec-num">BOARD</span>
+        <h2>High-Odds Cards</h2>
+        <span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" type="button" data-refresh="picks">
+          <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
+        </button>
+      </div>
+      <div id="upsellBanner" class="upsell hidden">
+        <div>
+          <div class="u-t">These cards are Premium-only</div>
+          <div class="u-s">₦10,000 / 30 days · multiscores, correct scores, HT/FT, margins</div>
+        </div>
+        <button class="btn btn-gold" type="button" data-upgrade><svg aria-hidden="true"><use href="#i-bolt"/></svg> Unlock With Premium</button>
+      </div>
+      <div class="board-tabs">
+        <span class="board-label">Longshot board</span>
+        <span class="board-note">Low probability · big odds · tracked in public</span>
+      </div>
+      <div id="highOddsPicks" class="picks-grid">
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="panel-results" class="tabpanel hidden" role="tabpanel">
+      <div class="app-head">
+        <span class="sec-num">LEDGER</span>
+        <h2>Recent Results</h2>
+        <span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" type="button" data-refresh="results">
+          <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
+        </button>
+      </div>
+      <div id="resultsPanel">
+        <div class="skeleton sk-card"></div>
+      </div>
+    </section>
+
+    <!-- PERFORMANCE -->
+    <section id="panel-performance" class="tabpanel hidden" role="tabpanel">
+      <div class="app-head">
+        <span class="sec-num">RECORD</span>
+        <h2>Performance</h2>
+        <span class="spacer"></span>
+        <button class="btn btn-soft btn-sm" type="button" data-refresh="performance">
+          <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
+        </button>
+      </div>
+      <div id="performancePanel">
+        <div class="skeleton sk-card"></div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="panel-admin" class="tabpanel hidden" role="tabpanel">
+      <div class="app-head">
+        <span class="sec-num">A</span>
+        <h2>Admin Panel</h2>
+      </div>
+      <div class="card">
+        <div class="admin-actions">
+          <button id="adminSyncBtn" class="btn btn-gold btn-sm" type="button">Force Sync</button>
+          <button id="adminSettleBtn" class="btn btn-gold btn-sm" type="button">Force Settle</button>
+          <button id="adminRunAllBtn" class="btn btn-gold btn-sm" type="button">Run All</button>
+          <button id="adminSyncOddsBtn" class="btn btn-gold btn-sm" type="button">Sync Odds</button>
+          <button id="adminLoadUsersBtn" class="btn btn-soft btn-sm" type="button">Users</button>
+          <button id="adminLoadPaymentsBtn" class="btn btn-soft btn-sm" type="button">Payments</button>
+        </div>
+        <div id="adminStatus" class="muted" style="margin-bottom:20px;font-size:14px"></div>
+        <div id="adminUsers" style="margin-bottom:24px"></div>
+        <div id="adminPayments"></div>
+      </div>
+    </section>
+  </div>
+  <!-- ================= /APP MODE ================= -->
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -924,7 +908,7 @@ tr:last-child td{border-bottom:none}
   <div class="wrap">
     <div class="foot-grid">
       <div class="foot-brand">
-        <a class="brand" href="#top">
+        <a class="brand" href="/app">
           <svg aria-hidden="true" style="width:30px;height:30px"><use href="#i-logo"/></svg>
           <span class="brand-name" style="font-size:15px">VALUEBETS<small>ANALYTICS</small></span>
         </a>
@@ -996,11 +980,14 @@ tr:last-child td{border-bottom:none}
 
 <script>
 /* ============================================================
-   VALUEBETS ANALYTICS — APP LOGIC
+   VALUEBETS ANALYTICS — v3 APP LOGIC (landing + tabbed app)
    (endpoints identical to previous frontend)
    ============================================================ */
 const API = "/api";
 let currentUser = null;
+let currentTab = null;
+let requestedTab = null;
+let picksData = null;
 const RING_C = 326.73;
 
 function $(id) { return document.getElementById(id); }
@@ -1063,6 +1050,7 @@ function clearSession() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   currentUser = null;
+  picksData = null;
   updateUI();
 }
 
@@ -1076,9 +1064,48 @@ function logout() {
 }
 window.logout = logout;
 
+/* ---------- TABS ---------- */
+var TAB_ALIASES = {
+  "bankers": "bankers", "picks": "bankers", "banker": "bankers",
+  "high-odds": "high-odds", "highodds": "high-odds", "premium-cards": "high-odds",
+  "results": "results", "ledger": "results",
+  "performance": "performance", "stats": "performance",
+  "admin": "admin"
+};
+
+function parseHashTab() {
+  var h = (window.location.hash || "").replace(/^#\/?/, "").toLowerCase();
+  return TAB_ALIASES[h] || null;
+}
+
+function selectTab(id, push) {
+  if (!isAuthed()) return;
+  id = TAB_ALIASES[id] || "bankers";
+  if (id === "admin" && !(currentUser && currentUser.is_admin)) id = "bankers";
+  currentTab = id;
+
+  document.querySelectorAll(".tabbar .tab").forEach(function (btn) {
+    btn.classList.toggle("active", btn.getAttribute("data-tab") === id);
+  });
+  ["bankers", "high-odds", "results", "performance", "admin"].forEach(function (t) {
+    $("panel-" + t).classList.toggle("hidden", t !== id);
+  });
+
+  if (push !== false) {
+    try { history.pushState(null, "", "#" + id); } catch (e) {}
+  }
+  window.scrollTo(0, 0);
+}
+
+window.addEventListener("hashchange", function () {
+  var t = parseHashTab();
+  if (isAuthed() && t) selectTab(t, false);
+});
+
 /* ---------- UI STATE ---------- */
 function updateUI() {
   var userArea = $("userArea");
+  var siteNav = $("siteNav");
   var authed = isAuthed();
 
   if (authed) {
@@ -1097,44 +1124,35 @@ function updateUI() {
       '<button class="btn btn-ghost btn-sm" type="button" data-open-auth>Sign&nbsp;In</button>' +
       '<button class="btn btn-gold btn-sm" type="button" data-open-auth>Get Free&nbsp;Picks</button>';
   }
+  siteNav.classList.toggle("hidden", authed);
 
-  /* premium CTAs */
   var upgradeBtn = $("upgradeBtn");
-  var upgradeCard = $("upgradeCard");
-  var adminPanel = $("adminPanel");
-
-  if (authed && currentUser.is_premium) {
-    upgradeBtn.disabled = true;
-    upgradeBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-check"/></svg> Premium Active';
-    upgradeCard.classList.add("hidden");
-  } else if (authed) {
-    upgradeBtn.disabled = false;
-    upgradeBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-bolt"/></svg> Upgrade To Premium';
-    upgradeCard.classList.remove("hidden");
-  } else {
-    upgradeBtn.disabled = false;
-    upgradeBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-bolt"/></svg> Upgrade To Premium';
-    upgradeCard.classList.add("hidden");
+  if (upgradeBtn) {
+    if (authed && currentUser.is_premium) {
+      upgradeBtn.disabled = true;
+      upgradeBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-check"/></svg> Premium Active';
+    } else {
+      upgradeBtn.disabled = false;
+      upgradeBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-bolt"/></svg> Upgrade To Premium';
+    }
   }
 
-  if (authed && currentUser.is_admin) {
-    adminPanel.classList.remove("hidden");
-  } else {
-    adminPanel.classList.add("hidden");
-  }
+  $("landing").classList.toggle("hidden", authed);
+  $("appView").classList.toggle("hidden", !authed);
 
   if (authed) {
+    $("adminTabBtn").classList.toggle("hidden", !currentUser.is_admin);
+    $("upsellBanner").classList.toggle("hidden", !!currentUser.is_premium);
     loadPicks();
-  } else {
-    renderPicksGate();
+    selectTab(requestedTab || currentTab || "bankers", false);
+    requestedTab = null;
   }
 }
 
 /* ---------- AUTH MODAL ---------- */
 function openAuthModal() {
   if (isAuthed()) {
-    var el = $("picks");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    selectTab("bankers");
     return;
   }
   $("authModal").classList.add("open");
@@ -1215,38 +1233,6 @@ async function startCheckout() {
 }
 
 /* ---------- PICKS ---------- */
-function renderPicksGate() {
-  $("picks").innerHTML =
-    '<div class="gate">' +
-      '<svg aria-hidden="true"><use href="#i-lock"/></svg>' +
-      "<h3>Today's board is live behind a free account</h3>" +
-      "<p>Register in 20 seconds and unlock up to <strong>10 banker picks</strong> across 23 leagues — every day, no card required. Premium high-odds cards stay gold-locked until you upgrade.</p>" +
-      '<button class="btn btn-gold" type="button" data-open-auth><svg aria-hidden="true"><use href="#i-bolt"/></svg> Unlock Free Picks</button>' +
-    "</div>";
-}
-
-async function loadPicks() {
-  var picksEl = $("picks");
-  if (!isAuthed()) { renderPicksGate(); return; }
-
-  picksEl.innerHTML = '<div class="picks-grid"><div class="skeleton sk-card"></div><div class="skeleton sk-card"></div></div>';
-
-  try {
-    var data = await apiFetch("/picks/today", { method: "GET" });
-    renderPicks(data);
-  } catch (err) {
-    picksEl.innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
-  }
-}
-
-function kickoffLabel(p) {
-  if (!p.kickoff) return "";
-  var d = new Date(p.kickoff);
-  var day = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-  var time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return day + " · " + time;
-}
-
 function pickCard(p, i) {
   var delay = Math.min((i || 0) * 0.07, 0.5);
   var html = '<article class="pick' + (p.locked ? " pick-locked" : "") + '" style="animation-delay:' + delay + 's">';
@@ -1293,55 +1279,73 @@ function pickCard(p, i) {
   return html;
 }
 
-function renderPicks(data) {
-  var picksEl = $("picks");
-  if (!data) return;
+function kickoffLabel(p) {
+  if (!p.kickoff) return "";
+  var d = new Date(p.kickoff);
+  var day = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  var time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return day + " · " + time;
+}
 
-  var safe = data.safe_picks || [];
-  var bonus = data.bonus_picks || [];
-
-  if (!safe.length && !bonus.length) {
-    picksEl.innerHTML =
-      '<div class="empty"><b>No picks on the board right now.</b>New picks drop after the 07:00 sync. Check back soon.</div>';
-    return;
-  }
-
-  var html = "";
-
-  if (safe.length) {
-    html +=
-      '<div class="board-tabs"><span class="board-label">Banker Picks</span>' +
-      '<span class="board-note">' + safe.length + " unlocked for you</span></div>";
-    html += '<div class="picks-grid">';
-    safe.forEach(function (p, i) { html += pickCard(p, i); });
-    html += "</div>";
-  }
-
-  if (bonus.length) {
-    html +=
-      '<div class="board-tabs" style="margin-top:44px"><span class="board-label">High-Odds Cards — Premium</span>' +
-      '<span class="board-note">Low probability · big odds · tracked in public</span></div>';
-    html += '<div class="picks-grid">';
-    bonus.forEach(function (p, i) { html += pickCard(p, safe.length + i); });
-    html += "</div>";
-  }
-
-  picksEl.innerHTML = html;
-
-  /* animate meters in */
+function animateMeters(container) {
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
-      picksEl.querySelectorAll(".meter i").forEach(function (el) {
+      container.querySelectorAll(".meter i").forEach(function (el) {
         el.style.width = (parseFloat(el.getAttribute("data-w")) || 0) + "%";
       });
     });
   });
 }
 
-$("refreshPicksBtn").addEventListener("click", function () {
-  if (isAuthed()) loadPicks();
-  else renderPicksGate();
-});
+function setTabCount(which, n) {
+  var el = document.querySelector('[data-cnt="' + which + '"]');
+  if (el) el.textContent = n == null ? "·" : String(n);
+}
+
+function renderPicksBoards() {
+  var safe = (picksData && picksData.safe_picks) || [];
+  var bonus = (picksData && picksData.bonus_picks) || [];
+
+  setTabCount("bankers", picksData ? safe.length : null);
+  setTabCount("high-odds", picksData ? bonus.length : null);
+
+  var b = $("bankerPicks");
+  if (!safe.length) {
+    b.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>No banker picks on the board right now.</b>New picks drop after the 07:00 sync. Check back soon.</div>';
+  } else {
+    var bh = "";
+    safe.forEach(function (p, i) { bh += pickCard(p, i); });
+    b.innerHTML = bh;
+    animateMeters(b);
+  }
+
+  var h = $("highOddsPicks");
+  if (!bonus.length) {
+    h.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>No high-odds cards today.</b>The longshot board is updated after the daily sync.</div>';
+  } else {
+    var hh = "";
+    bonus.forEach(function (p, i) { hh += pickCard(p, i); });
+    h.innerHTML = hh;
+    animateMeters(h);
+  }
+}
+
+async function loadPicks() {
+  if (!isAuthed()) return;
+
+  if (!picksData) {
+    $("bankerPicks").innerHTML = '<div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>';
+    $("highOddsPicks").innerHTML = '<div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>';
+  }
+
+  try {
+    picksData = await apiFetch("/picks/today", { method: "GET" });
+    renderPicksBoards();
+  } catch (err) {
+    $("bankerPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
+    $("highOddsPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
+  }
+}
 
 /* ---------- RESULTS LEDGER ---------- */
 function outcomeClass(status) {
@@ -1351,7 +1355,7 @@ function outcomeClass(status) {
 }
 
 function renderResults(rows) {
-  var el = $("results");
+  var el = $("resultsPanel");
   if (!rows || !rows.length) {
     el.innerHTML = '<div class="empty"><b>No settled results yet.</b>The ledger fills up as soon as fixtures finish.</div>';
     return;
@@ -1382,6 +1386,7 @@ function renderResults(rows) {
 
 function renderTicker(rows) {
   var track = $("tickerTrack");
+  if (!track) return;
   if (!rows || !rows.length) {
     track.innerHTML = '<span class="tick-empty">The honest ledger loads when results settle.</span>';
     return;
@@ -1396,21 +1401,20 @@ function renderTicker(rows) {
         (won ? '<span class="w">WON</span>' : lost ? '<span class="l">LOST</span>' : "") +
       "</span>";
   });
-  track.innerHTML = items + items; /* seamless loop */
+  track.innerHTML = items + items;
 }
 
 async function loadResults() {
-  var el = $("results");
   try {
     var data = await apiFetch("/history/results", { method: "GET" });
     renderResults(data);
     renderTicker(data);
   } catch (err) {
-    el.innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
+    if ($("resultsPanel")) {
+      $("resultsPanel").innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
+    }
   }
 }
-
-$("refreshResultsBtn").addEventListener("click", loadResults);
 
 /* ---------- PERFORMANCE ---------- */
 function tweenNumber(el, target, suffix, decimals) {
@@ -1428,7 +1432,7 @@ function tweenNumber(el, target, suffix, decimals) {
 }
 
 function renderPerformance(data) {
-  var el = $("performance");
+  var el = $("performancePanel");
   if (!data) return;
 
   if (!data.total || data.total === 0) {
@@ -1467,30 +1471,6 @@ function renderPerformance(data) {
   tweenNumber($("dialNum"), data.win_rate, "%", 1);
 }
 
-async function loadPerformance() {
-  var el = $("performance");
-  try {
-    var data = await apiFetch("/performance/summary", { method: "GET" });
-    renderPerformance(data);
-    fillBoard(data);
-    loadStatsStrip(data);
-  } catch (err) {
-    el.innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
-  }
-}
-
-$("refreshPerformanceBtn").addEventListener("click", loadPerformance);
-
-/* ---------- HERO BOARD + STAT RINGS ---------- */
-function fillBoard(d) {
-  if (!d) return;
-  $("boardWinRate").textContent = (d.win_rate != null ? d.win_rate : 0) + "%";
-  $("boardRecord").textContent = d.total ? (d.won + "-" + d.lost + " SETTLED") : "AWAITING FIRST SETTLES";
-  $("chipStreak").textContent = d.current_streak || "—";
-  $("chipHighOdds").textContent = d.high_odds_won + "/" + d.high_odds_total;
-  $("chipSettled").textContent = d.total != null ? d.total : 0;
-}
-
 function loadStatsStrip(d) {
   var strip = $("statsStrip");
   if (!strip || !d) return;
@@ -1512,6 +1492,18 @@ function loadStatsStrip(d) {
   setRing(1, hoRate / 100, d.high_odds_won + "/" + d.high_odds_total);
   setRing(2, Math.min(settled / 100, 1), settled);
   setRing(3, d.current_streak ? 1 : 0, d.current_streak || "0");
+}
+
+async function loadPerformance() {
+  try {
+    var data = await apiFetch("/performance/summary", { method: "GET" });
+    renderPerformance(data);
+    loadStatsStrip(data);
+  } catch (err) {
+    if ($("performancePanel")) {
+      $("performancePanel").innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
+    }
+  }
 }
 
 /* ---------- ADMIN ---------- */
@@ -1626,6 +1618,10 @@ document.addEventListener("click", function (e) {
   if ((t = e.target.closest('[data-action="logout"]'))) { logout(); return; }
   if ((t = e.target.closest("[data-legal]"))) { e.preventDefault(); showLegal(t.getAttribute("data-legal")); return; }
   if ((t = e.target.closest("[data-close-legal]"))) { $("legalModal").classList.remove("open"); return; }
+  if ((t = e.target.closest(".tabbar .tab"))) { selectTab(t.getAttribute("data-tab")); return; }
+  if ((t = e.target.closest('[data-refresh="picks"]'))) { loadPicks(); return; }
+  if ((t = e.target.closest('[data-refresh="results"]'))) { loadResults(); return; }
+  if ((t = e.target.closest('[data-refresh="performance"]'))) { loadPerformance(); return; }
 });
 
 /* close modals on backdrop + Escape */
@@ -1638,7 +1634,7 @@ document.addEventListener("keydown", function (e) {
   }
 });
 
-/* ---------- PAYMENT RETURN (unchanged flow) ---------- */
+/* ---------- PAYMENT RETURN ---------- */
 async function checkPaymentRedirect() {
   var params = new URLSearchParams(window.location.search);
   var payment = params.get("payment");
@@ -1650,7 +1646,10 @@ async function checkPaymentRedirect() {
       currentUser = me;
       localStorage.setItem("user", JSON.stringify(me));
       updateUI();
-      if (me.is_premium) showMessage("Payment successful. Premium is active — enjoy the high-odds cards.", "success");
+      if (me.is_premium) {
+        showMessage("Payment successful. Premium is active — enjoy the high-odds cards.", "success");
+        selectTab("high-odds");
+      }
     } catch (err) {
       showMessage("Payment successful, but account refresh failed. Login again.", "error");
     }
@@ -1683,13 +1682,13 @@ function initReveals() {
 /* ---------- INIT ---------- */
 async function init() {
   initReveals();
+  requestedTab = parseHashTab();
+
+  loadResults();
+  loadPerformance();
 
   var token = localStorage.getItem("token");
   var savedUser = localStorage.getItem("user");
-
-  renderPicksGate();
-  loadResults();
-  loadPerformance();
 
   if (token && savedUser) {
     try {
@@ -1704,6 +1703,9 @@ async function init() {
     }
   } else {
     updateUI();
+    if (requestedTab && TAB_ALIASES[(window.location.hash || "").replace(/^#\/?/, "").toLowerCase()] !== "admin") {
+      showMessage("Tip: create a free account and you'll land right on that section.", "info");
+    }
   }
 }
 
@@ -1717,5 +1719,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a30c98d3ac7a9918',t:'MTc4NzY4MTg4Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>

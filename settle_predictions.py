@@ -13,6 +13,12 @@ load_dotenv()
 API_KEY = os.getenv("FOOTBALL_DATA_KEY", "").strip()
 BASE_URL = "https://api.football-data.org/v4"
 
+# How far back settlement searches for finished matches.
+# 3 days was too short for a pipeline that can freeze (API delay, restarts,
+# outages): any finished match older than that became permanently unsettleable.
+FD_LOOKBACK_DAYS = 5
+ESPN_LOOKBACK_DAYS = 4
+
 
 def api_headers():
     return {"X-Auth-Token": API_KEY}
@@ -42,7 +48,7 @@ def fetch_finished_matches(target_date: date):
 
 def update_fixtures_from_api(db: Session):
     today = date.today()
-    dates = [today, today - timedelta(days=1), today - timedelta(days=2)]
+    dates = [today - timedelta(days=i) for i in range(FD_LOOKBACK_DAYS)]
     updated_count = 0
 
     for target_date in dates:
@@ -87,7 +93,7 @@ def update_espn_fixtures(db: Session):
     today = date.today()
     updated = 0
 
-    for days_back in (0, 1, 2):
+    for days_back in range(ESPN_LOOKBACK_DAYS):
         d = today - timedelta(days=days_back)
 
         for slug in EXTRA_LEAGUES:
@@ -149,18 +155,15 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
     if market == "WIN_TO_NIL_HOME": return "won" if (home_win and away_goals == 0) else "lost"
     if market == "WIN_TO_NIL_AWAY": return "won" if (away_win and home_goals == 0) else "lost"
 
-    if market == "HOME_MULTI": return "won" if (home_goals, away_goals) in [(2,0), (2,1), (3,0), (3,1)] else "lost"
-    if market == "AWAY_MULTI": return "won" if (home_goals, away_goals) in [(0,2), (1,2), (0,3), (1,3)] else "lost"
-    if market == "DRAW_MULTI": return "won" if (home_goals, away_goals) in [(1,1), (2,2)] else "lost"
-
-    if market == "CS": return "won" if pred.pick == f"{home_goals}-{away_goals}" else "lost"
-    if market == "HOME_WIN": return "won" if home_goals > away_goals else "lost"
-    if market == "AWAY_WIN": return "won" if away_goals > home_goals else "lost"
     if market == "HOME_MULTI_LOW": return "won" if (home_goals, away_goals) in [(1, 0), (2, 0)] else "lost"
     if market == "HOME_MULTI_HIGH": return "won" if (home_goals, away_goals) in [(2, 1), (3, 1)] else "lost"
     if market == "AWAY_MULTI_LOW": return "won" if (home_goals, away_goals) in [(0, 1), (0, 2)] else "lost"
     if market == "AWAY_MULTI_HIGH": return "won" if (home_goals, away_goals) in [(1, 2), (1, 3)] else "lost"
     if market == "DRAW_MULTI": return "won" if (home_goals, away_goals) in [(1, 1), (2, 2)] else "lost"
+
+    if market == "CS": return "won" if pred.pick == f"{home_goals}-{away_goals}" else "lost"
+    if market == "HOME_WIN": return "won" if home_goals > away_goals else "lost"
+    if market == "AWAY_WIN": return "won" if away_goals > home_goals else "lost"
     if market == "HOME_MARGIN_2": return "won" if (home_goals - away_goals) >= 2 else "lost"
     if market == "AWAY_MARGIN_2": return "won" if (away_goals - home_goals) >= 2 else "lost"
 
@@ -187,13 +190,6 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
         return "won" if (ht_home, ht_away) in [(0, 0), (1, 1)] else "lost"
 
     return "void"
-    if market == "HTFT":
-        ht_h, ht_a = home_goals // 2, away_goals // 2 # rough approximation
-        hr = "H" if ht_h > ht_a else "A" if ht_a > ht_h else "D"
-        fr = "H" if home_goals > away_goals else "A" if away_goals > home_goals else "D"
-        return "won" if pred.pick == f"{hr}/{fr}" else "lost"
-
-    return "void"
 
 
 def settle_all(db: Session):
@@ -212,7 +208,7 @@ def settle_all(db: Session):
         ).all()
 
         for pred in preds:
-            result = settle_prediction(pred, fixture.home_goals, fixture.away_goals, fixture.ht_home_goals, fixture.ht_away_goals)      
+            result = settle_prediction(pred, fixture.home_goals, fixture.away_goals, fixture.ht_home_goals, fixture.ht_away_goals)
             pred.status = result
             pred.settled_at = datetime.now(timezone.utc)
             counts[result] = counts.get(result, 0) + 1

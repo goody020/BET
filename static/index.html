@@ -311,6 +311,10 @@ section{scroll-margin-top:90px}
 .board-label::before{content:"";width:22px;height:1px;background:var(--gold-3)}
 .board-note{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
 .picks-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.day-head{grid-column:1/-1;display:flex;align-items:center;gap:14px;margin:26px 0 2px;
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--gold-2)}
+.day-head:first-child{margin-top:0}
+.day-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(212,175,55,.4),rgba(212,175,55,0))}
 .pick{
   background:linear-gradient(165deg,var(--bg-2),var(--bg-1));
   border:1px solid var(--line-soft);border-radius:var(--r-lg);
@@ -1302,6 +1306,55 @@ function setTabCount(which, n) {
   if (el) el.textContent = n == null ? "·" : String(n);
 }
 
+/* ---------- DAY GROUPING (picks follow the calendar, not raw probability order) ---------- */
+function kickoffDateOf(p) {
+  if (!p.kickoff) return null;
+  var d = new Date(p.kickoff);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function calendarDayKey(d) {
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function dayHeaderLabel(key) {
+  var now = new Date();
+  var todayKey = calendarDayKey(now);
+  var tomorrowKey = calendarDayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  var y = Math.floor(key / 10000);
+  var m = Math.floor((key % 10000) / 100);
+  var day = key % 100;
+  var base = new Date(y, m - 1, day).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  if (key === todayKey) return "Today · " + base;
+  if (key === tomorrowKey) return "Tomorrow · " + base;
+  return base;
+}
+
+function renderPickGroups(list, container) {
+  var groups = {};
+  var order = [];
+  list.forEach(function (p) {
+    var d = kickoffDateOf(p);
+    var k = d ? calendarDayKey(d) : Infinity;
+    if (!groups[k]) { groups[k] = []; order.push(k); }
+    groups[k].push(p);
+  });
+  order.sort(function (a, b) { return a - b; });
+
+  var html = "";
+  var i = 0;
+  order.forEach(function (k) {
+    var label = (k === Infinity) ? "Upcoming" : dayHeaderLabel(k);
+    html += '<div class="day-head"><span>' + escapeHTML(label) + '</span></div>';
+    groups[k].sort(function (a, b) {
+      return String(a.kickoff || "").localeCompare(String(b.kickoff || ""));
+    }).forEach(function (p) {
+      html += pickCard(p, i++);
+    });
+  });
+  container.innerHTML = html;
+}
+
 function renderPicksBoards() {
   var safe = (picksData && picksData.safe_picks) || [];
   var bonus = (picksData && picksData.bonus_picks) || [];
@@ -1313,9 +1366,7 @@ function renderPicksBoards() {
   if (!safe.length) {
     b.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>No banker picks on the board right now.</b>New picks drop after the 07:00 sync. Check back soon.</div>';
   } else {
-    var bh = "";
-    safe.forEach(function (p, i) { bh += pickCard(p, i); });
-    b.innerHTML = bh;
+    renderPickGroups(safe, b);
     animateMeters(b);
   }
 
@@ -1323,9 +1374,7 @@ function renderPicksBoards() {
   if (!bonus.length) {
     h.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>No high-odds cards today.</b>The longshot board is updated after the daily sync.</div>';
   } else {
-    var hh = "";
-    bonus.forEach(function (p, i) { hh += pickCard(p, i); });
-    h.innerHTML = hh;
+    renderPickGroups(bonus, h);
     animateMeters(h);
   }
 }
@@ -1719,5 +1768,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32aa2d14d4bfea4',t:'MTc4Nzk5Njg2NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

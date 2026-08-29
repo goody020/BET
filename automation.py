@@ -1,6 +1,6 @@
 import os
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -81,6 +81,28 @@ def update_state(key):
         db.close()
 
 
+def pin_daily_board():
+    """Freeze today's card after a successful sync (write-once per day).
+    Runs in its own session + try/except so a pin hiccup can never break the sync."""
+    try:
+        from picks import store_board_pins
+
+        db = SessionLocal()
+        try:
+            result = store_board_pins(db, date.today())
+        finally:
+            db.close()
+
+        if result == "pinned":
+            print("Automation: today's board pinned (card frozen until tomorrow's sync).")
+        elif result == "exists":
+            print("Automation: board already pinned today (card unchanged).")
+        else:
+            print("Automation: nothing to pin today (empty pool, live fallback stays on).")
+    except Exception as e:
+        print(f"Board pin error (non-fatal): {e}")
+
+
 def run_sync():
     with _lock:
         if RUNNING["sync"]:
@@ -95,6 +117,8 @@ def run_sync():
         db = SessionLocal()
         match_and_save_odds(db)
         db.close()
+
+        pin_daily_board()
 
         update_state("last_sync")
         print("Automation: fixture sync complete.")

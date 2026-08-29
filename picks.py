@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app import get_db, get_current_user, User
-from sports_models import Fixture, Prediction, OddsInsight
+from sports_models import Fixture, Prediction, OddsInsight, AutomationState
 
 
 router = APIRouter(prefix="/picks", tags=["picks"])
@@ -51,6 +51,11 @@ PREMIUM_MARKETS = {
 }
 
 HIGH_ODDS_ONLY = PREMIUM_MARKETS - {"CS", "HTFT"}
+
+BOARD_LIMIT_SAFE = 10
+BOARD_LIMIT_HIGH_ODDS = 4
+BOARD_LIMIT_CS = 2
+BOARD_LIMIT_HTFT = 2
 
 
 def format_kickoff(dt):
@@ -143,7 +148,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
     }
 
 
-def fetch_free_picks(db: Session, limit: int = 10):
+def fetch_free_picks(db: Session, limit: int = BOARD_LIMIT_SAFE):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
 
     rows = (
@@ -165,7 +170,7 @@ def fetch_free_picks(db: Session, limit: int = 10):
     return merge_selected([], rows, limit, max_per_fixture=1, max_per_market=3)
 
 
-def fetch_high_odds(db: Session, limit: int = 4):
+def fetch_high_odds(db: Session, limit: int = BOARD_LIMIT_HIGH_ODDS):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
 
     rows = (
@@ -208,23 +213,130 @@ def fetch_bonus(db: Session, market: str, limit: int = 2):
     return merge_selected([], rows, limit, max_per_fixture=1)
 
 
+def select_bonus_rows(db: Session):
+    return (
+        fetch_high_odds(db, limit=BOARD_LIMIT_HIGH_ODDS)
+        + fetch_bonus(db, "CS", limit=BOARD_LIMIT_CS)
+        + fetch_bonus(db, "HTFT", limit=BOARD_LIMIT_HTFT)
+    )
+
+
+# ---------------------------------------------------------------- daily board pin ("print the card once")
+# At the 07:00 sync the ranked selection is frozen (pinned) into AutomationState.
+# /picks/today serves the pinned card and it can only SHRINK during the day:
+# matches leave when they kick off / settle (they move to RESULTS); no new
+# faces appear, no re-ranking. A fresh card is printed with the next daily sync.
+PIN_PREFIX = "boardpin"
+
+
+def _pin_key(kind: str, day: date):
+    return f"{PIN_PREFIX}:{kind}:{day.isoformat()}"
+
+
+def store_board_pins(db: Session, day: date):
+    """Freeze today's ranked board. Write-once per day: never re-deals intra-day."""
+    already = db.query(AutomationState).filter(
+        AutomationState.state_key == _pin_key("safe", day)
+    ).first()
+    if already:
+        return "exists"
+
+    safe_ids = [p.id for p, _ in fetch_free_picks(db, limit=BOARD_LIMIT_SAFE)]
+    bonus_ids = [p.id for p, _ in select_bonus_rows(db)]
+
+    if not safe_ids and not bonus_ids:
+        # Nothing to pin (e.g. data outage day): leave unpinned so the live
+        # fallback keeps serving whatever the pool has instead of freezing emptiness.
+        return "skipped-empty"
+
+    payload = {"safe": ",".join(str(i) for i in safe_ids), "bonus": ",".join(str(i) for i in bonus_ids)}
+    for kind, value in payload.items():
+        db.add(AutomationState(state_key=_pin_key(kind, day), state_value=value if value else "-"))
+
+    # tidy: drop pins older than 3 days
+    cutoff_key = _pin_key("safe", day - timedelta(days=3))
+    for row in db.query(AutomationState).filter(AutomationState.state_key.like(f"{PIN_PREFIX}:%")).all():
+        if row.state_key < cutoff_key:
+            db.delete(row)
+
+    db.commit()
+    return "pinned"
+
+
+def load_board_pins(db: Session, day: date):
+    keys = [_pin_key("safe", day), _pin_key("bonus", day)]
+    rows = db.query(AutomationState).filter(AutomationState.state_key.in_(keys)).all()
+    if not rows:
+        return None
+
+    pins = {"safe": None, "bonus": None}
+    for row in rows:
+        kind = row.state_key.split(":")[1]
+        value = (row.state_value or "").strip()
+        ids = []
+        if value and value != "-":
+            for token in value.split(","):
+                token = token.strip()
+                if token.isdigit():
+                    ids.append(int(token))
+        pins[kind] = ids
+
+    if pins["safe"] is None or pins["bonus"] is None:
+        return None
+    return pins
+
+
+def fetch_pinned(db: Session, ids):
+    """Pinned picks still eligible for the board: pending, upcoming, not kicked off.
+    Order stays exactly as pinned — no re-ranking."""
+    if not ids:
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+
+    rows = (
+        db.query(Prediction, Fixture)
+        .join(Fixture, Prediction.fixture_id == Fixture.id)
+        .filter(
+            Prediction.id.in_(ids),
+            Fixture.status.in_(UPCOMING_STATUSES),
+            Prediction.status == "pending",
+            Fixture.kickoff >= cutoff,
+        )
+        .all()
+    )
+
+    order = {pid: idx for idx, pid in enumerate(ids)}
+    rows.sort(key=lambda pf: order.get(pf[0].id, 10 ** 9))
+    return rows
+
+
 @router.get("/today")
 def picks_today(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    free_rows = fetch_free_picks(db, limit=10)
-    high_odds_rows = fetch_high_odds(db, limit=4)
-    cs_rows = fetch_bonus(db, "CS", limit=2)
-    htft_rows = fetch_bonus(db, "HTFT", limit=2)
+    pins = None
+    try:
+        pins = load_board_pins(db, date.today())
+    except Exception:
+        pins = None
+
+    if pins is not None:
+        free_rows = fetch_pinned(db, pins["safe"])
+        bonus_rows = fetch_pinned(db, pins["bonus"])
+    else:
+        # no card pinned today (pre-first-sync / degraded day): live-ranked fallback
+        free_rows = fetch_free_picks(db, limit=BOARD_LIMIT_SAFE)
+        bonus_rows = select_bonus_rows(db)
 
     if user.is_premium:
         return {
             "plan": user.plan,
             "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
-            "bonus_picks": [serialize_pick(p, f, db) for p, f in high_odds_rows + cs_rows + htft_rows],
+            "bonus_picks": [serialize_pick(p, f, db) for p, f in bonus_rows],
         }
 
     # Free users: all free-market picks unlocked, premium section locked
     return {
         "plan": user.plan,
         "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
-        "bonus_picks": [serialize_pick(p, f, db, locked=True) for p, f in high_odds_rows + cs_rows + htft_rows],
+        "bonus_picks": [serialize_pick(p, f, db, locked=True) for p, f in bonus_rows],
     }

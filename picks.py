@@ -148,10 +148,30 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
     }
 
 
-def fetch_free_picks(db: Session, limit: int = BOARD_LIMIT_SAFE):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+# ---------------------------------------------------------------- day-window selection
+# "Today" = the Africa/Lagos calendar day (UTC+1, no DST) — the same day the
+# frontend TODAY header shows users. Busy days (weekends) fill the card with
+# today's games only; quiet days top up from the week's best so the board
+# never looks abandoned. The card itself is still frozen at the 07:00 sync.
+LAGOS_OFFSET = timedelta(hours=1)
 
-    rows = (
+
+def lagos_today_window():
+    """(start, end) as naive UTC datetimes covering the Lagos calendar day."""
+    now_utc = datetime.now(timezone.utc)
+    lagos_now = now_utc + LAGOS_OFFSET
+    d = lagos_now.date()
+    midnight_lagos_utc = datetime(d.year, d.month, d.day) - LAGOS_OFFSET
+    return midnight_lagos_utc, midnight_lagos_utc + timedelta(days=1)
+
+
+def board_cutoff():
+    # fixtures are stored as naive UTC — keep comparisons naive
+    return (datetime.now(timezone.utc) - timedelta(hours=6)).replace(tzinfo=None)
+
+
+def _free_candidates(db: Session, kickoff_start=None, kickoff_end=None):
+    q = (
         db.query(Prediction, Fixture)
         .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
@@ -160,64 +180,93 @@ def fetch_free_picks(db: Session, limit: int = BOARD_LIMIT_SAFE):
             Prediction.status == "pending",
             Prediction.confidence_score >= 60,
             Prediction.probability <= 0.90,
-            Fixture.kickoff >= cutoff,
         )
-        .order_by(Prediction.probability.desc())
-        .limit(200)
-        .all()
     )
+    if kickoff_start is not None:
+        q = q.filter(Fixture.kickoff >= kickoff_start, Fixture.kickoff < kickoff_end)
+    else:
+        q = q.filter(Fixture.kickoff >= board_cutoff())
+    return q.order_by(Prediction.probability.desc()).limit(200).all()
 
-    return merge_selected([], rows, limit, max_per_fixture=1, max_per_market=3)
+
+def fetch_free_picks(db: Session, limit: int = BOARD_LIMIT_SAFE):
+    return merge_selected([], _free_candidates(db), limit, max_per_fixture=1, max_per_market=3)
 
 
-def fetch_high_odds(db: Session, limit: int = BOARD_LIMIT_HIGH_ODDS):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
-
-    rows = (
+def _high_odds_candidates(db: Session, kickoff_start=None, kickoff_end=None):
+    q = (
         db.query(Prediction, Fixture)
         .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
             Fixture.status.in_(UPCOMING_STATUSES),
             Prediction.market.in_(HIGH_ODDS_ONLY),
             Prediction.status == "pending",
-            Fixture.kickoff >= cutoff,
         )
-        .order_by(Prediction.probability.desc())
-        .limit(120)
-        .all()
     )
+    if kickoff_start is not None:
+        q = q.filter(Fixture.kickoff >= kickoff_start, Fixture.kickoff < kickoff_end)
+    else:
+        q = q.filter(Fixture.kickoff >= board_cutoff())
+    return q.order_by(Prediction.probability.desc()).limit(120).all()
 
-    return merge_selected([], rows, limit, max_per_fixture=1, max_per_market=1)
+
+def fetch_high_odds(db: Session, limit: int = BOARD_LIMIT_HIGH_ODDS):
+    return merge_selected([], _high_odds_candidates(db), limit, max_per_fixture=1, max_per_market=1)
 
 
-def fetch_bonus(db: Session, market: str, limit: int = 2):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+BONUS_MIN_PROB = {"CS": 0.15, "HTFT": 0.20}
 
-    min_prob = {"CS": 0.15, "HTFT": 0.20}.get(market, 0.0)
 
-    rows = (
+def _bonus_candidates(db: Session, market: str, kickoff_start=None, kickoff_end=None):
+    q = (
         db.query(Prediction, Fixture)
         .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
             Fixture.status.in_(UPCOMING_STATUSES),
             Prediction.market == market,
             Prediction.status == "pending",
-            Prediction.probability >= min_prob,
-            Fixture.kickoff >= cutoff,
+            Prediction.probability >= BONUS_MIN_PROB.get(market, 0.0),
         )
-        .order_by(Prediction.probability.desc())
-        .limit(40)
-        .all()
     )
+    if kickoff_start is not None:
+        q = q.filter(Fixture.kickoff >= kickoff_start, Fixture.kickoff < kickoff_end)
+    else:
+        q = q.filter(Fixture.kickoff >= board_cutoff())
+    return q.order_by(Prediction.probability.desc()).limit(40).all()
 
-    return merge_selected([], rows, limit, max_per_fixture=1)
+
+def fetch_bonus(db: Session, market: str, limit: int = 2):
+    return merge_selected([], _bonus_candidates(db, market), limit, max_per_fixture=1)
+
+
+def select_today_first(db: Session, candidates_fn, limit, merge_kwargs, *args):
+    """Stage A: today's games. Stage B (only if short): the week's best.
+    Today rows keep priority — the week never outranks today's card."""
+    start, end = lagos_today_window()
+    window_start = max(start, board_cutoff())
+    today_rows = merge_selected([], candidates_fn(db, *args, kickoff_start=window_start, kickoff_end=end), limit, **merge_kwargs)
+    if len(today_rows) >= limit:
+        return today_rows
+    return merge_selected(today_rows, candidates_fn(db, *args), limit, **merge_kwargs)
+
+
+def select_safe_rows(db: Session):
+    return select_today_first(db, _free_candidates, BOARD_LIMIT_SAFE, {"max_per_fixture": 1, "max_per_market": 3})
+
+
+def select_high_odds_rows(db: Session):
+    return select_today_first(db, _high_odds_candidates, BOARD_LIMIT_HIGH_ODDS, {"max_per_fixture": 1, "max_per_market": 1})
+
+
+def select_bonus_market_rows(db: Session, market: str, limit: int):
+    return select_today_first(db, _bonus_candidates, limit, {"max_per_fixture": 1}, market)
 
 
 def select_bonus_rows(db: Session):
     return (
-        fetch_high_odds(db, limit=BOARD_LIMIT_HIGH_ODDS)
-        + fetch_bonus(db, "CS", limit=BOARD_LIMIT_CS)
-        + fetch_bonus(db, "HTFT", limit=BOARD_LIMIT_HTFT)
+        select_high_odds_rows(db)
+        + select_bonus_market_rows(db, "CS", BOARD_LIMIT_CS)
+        + select_bonus_market_rows(db, "HTFT", BOARD_LIMIT_HTFT)
     )
 
 
@@ -241,7 +290,7 @@ def store_board_pins(db: Session, day: date):
     if already:
         return "exists"
 
-    safe_ids = [p.id for p, _ in fetch_free_picks(db, limit=BOARD_LIMIT_SAFE)]
+    safe_ids = [p.id for p, _ in select_safe_rows(db)]
     bonus_ids = [p.id for p, _ in select_bonus_rows(db)]
 
     if not safe_ids and not bonus_ids:
@@ -292,8 +341,6 @@ def fetch_pinned(db: Session, ids):
     if not ids:
         return []
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
-
     rows = (
         db.query(Prediction, Fixture)
         .join(Fixture, Prediction.fixture_id == Fixture.id)
@@ -301,7 +348,7 @@ def fetch_pinned(db: Session, ids):
             Prediction.id.in_(ids),
             Fixture.status.in_(UPCOMING_STATUSES),
             Prediction.status == "pending",
-            Fixture.kickoff >= cutoff,
+            Fixture.kickoff >= board_cutoff(),
         )
         .all()
     )
@@ -323,8 +370,8 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
         free_rows = fetch_pinned(db, pins["safe"])
         bonus_rows = fetch_pinned(db, pins["bonus"])
     else:
-        # no card pinned today (pre-first-sync / degraded day): live-ranked fallback
-        free_rows = fetch_free_picks(db, limit=BOARD_LIMIT_SAFE)
+        # no card pinned today (pre-first-sync / degraded day): live fallback, still today-first
+        free_rows = select_safe_rows(db)
         bonus_rows = select_bonus_rows(db)
 
     if user.is_premium:

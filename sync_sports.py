@@ -384,7 +384,9 @@ def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality)
 
     cs = correct_score_predictions(scores)
 
-    if cs["probability"] >= 0.15:
+    # Pure model output, no editorial bans: whatever scoreline the model ranks
+    # #1 is the card, shown with its true probability (>= 10% to filter noise).
+    if cs["probability"] >= 0.10:
         score, label = confidence_from_prob(cs["probability"])
         db.add(make_prediction(
             fixture_id=fixture.id, market="CS", pick=cs["pick"],
@@ -393,12 +395,10 @@ def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality)
         ))
         created += 1
 
-    # HT/FT: computed unconditionally (never crash a sync for one match),
-    # then apply the product rule once: never sell D/D (the boring low-odds default).
+    # HT/FT: full 9-combo table, pure argmax — D/D, twists, straights all eligible.
     htft = ht_ft_predictions(lh, la)
     if htft:
-        filtered = [opt for opt in htft if opt[0] != "D/D"]
-        pick, prob = (filtered or htft)[0]
+        pick, prob = htft[0]
         score, label = confidence_from_prob(prob)
         db.add(make_prediction(
             fixture_id=fixture.id, market="HTFT", pick=pick,

@@ -214,7 +214,7 @@ def fetch_high_odds(db: Session, limit: int = BOARD_LIMIT_HIGH_ODDS):
     return merge_selected([], _high_odds_candidates(db), limit, max_per_fixture=1, max_per_market=1)
 
 
-BONUS_MIN_PROB = {"CS": 0.15, "HTFT": 0.20}
+BONUS_MIN_PROB = {"CS": 0.10, "HTFT": 0.10}
 
 
 def _bonus_candidates(db: Session, market: str, kickoff_start=None, kickoff_end=None):

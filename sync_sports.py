@@ -285,6 +285,11 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
     home_over_15 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h >= 2))
     away_over_15 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a >= 2))
 
+    home_over_05 = clamp_prob(1.0 - sum(pr for (h, a), pr in scores.items() if h == 0))
+    away_over_05 = clamp_prob(1.0 - sum(pr for (h, a), pr in scores.items() if a == 0))
+    home_over_25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h >= 3))
+    away_over_25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a >= 3))
+
     win_nil_home = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > a and a == 0))
     win_nil_away = clamp_prob(sum(pr for (h, a), pr in scores.items() if a > h and h == 0))
 
@@ -319,6 +324,10 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
         ("AWAY_DNB", f"{away_team} Draw No Bet", away_dnb),
         ("HOME_OVER_15", f"{home_team} To Score Over 1.5 Goals", home_over_15),
         ("AWAY_OVER_15", f"{away_team} To Score Over 1.5 Goals", away_over_15),
+        ("HOME_OVER_05", f"{home_team} To Score", home_over_05),
+        ("AWAY_OVER_05", f"{away_team} To Score", away_over_05),
+        ("HOME_OVER_25", f"{home_team} To Score Over 2.5 Goals", home_over_25),
+        ("AWAY_OVER_25", f"{away_team} To Score Over 2.5 Goals", away_over_25),
         ("WIN_TO_NIL_HOME", f"{home_team} To Win To Nil", win_nil_home),
         ("WIN_TO_NIL_AWAY", f"{away_team} To Win To Nil", win_nil_away),
         ("HOME_MULTI_LOW", f"{home_team} Multiscore (1-0, 2-0)", home_multi_low),

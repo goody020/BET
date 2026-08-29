@@ -19,6 +19,8 @@ SAFE_MARKET_LABELS = {
     "DC_1X": "Home or Draw", "DC_X2": "Away or Draw", "DC_12": "Any Team To Win",
     "HOME_DNB": "Home Draw No Bet", "AWAY_DNB": "Away Draw No Bet",
     "HOME_OVER_15": "Home Over 1.5 Goals", "AWAY_OVER_15": "Away Over 1.5 Goals",
+    "HOME_OVER_05": "Home To Score", "AWAY_OVER_05": "Away To Score",
+    "HOME_OVER_25": "Home Over 2.5 Goals", "AWAY_OVER_25": "Away Over 2.5 Goals",
     "WIN_TO_NIL_HOME": "Home Win To Nil", "WIN_TO_NIL_AWAY": "Away Win To Nil",
     "HOME_MULTI_LOW": "Home Multiscore (1-0, 2-0)", "HOME_MULTI_HIGH": "Home Multiscore (2-1, 3-1)",
     "AWAY_MULTI_LOW": "Away Multiscore (0-1, 0-2)", "AWAY_MULTI_HIGH": "Away Multiscore (1-2, 1-3)",
@@ -38,6 +40,7 @@ FREE_MARKETS = {
     "DC_1X", "DC_X2", "DC_12",
     "HOME_DNB", "AWAY_DNB",
     "HOME_OVER_15", "AWAY_OVER_15",
+    "HOME_OVER_05", "AWAY_OVER_05",
 }
 
 # PREMIUM: specialised high-odds markets (HT options, multiscores, CS, HTFT)
@@ -47,6 +50,7 @@ PREMIUM_MARKETS = {
     "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
     "DRAW_MULTI", "HOME_MARGIN_2", "AWAY_MARGIN_2",
     "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
+    "HOME_OVER_25", "AWAY_OVER_25",
     "CS", "HTFT",
 }
 

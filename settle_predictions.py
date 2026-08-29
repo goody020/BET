@@ -152,6 +152,10 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
 
     if market == "HOME_OVER_15": return "won" if home_goals >= 2 else "lost"
     if market == "AWAY_OVER_15": return "won" if away_goals >= 2 else "lost"
+    if market == "HOME_OVER_05": return "won" if home_goals >= 1 else "lost"
+    if market == "AWAY_OVER_05": return "won" if away_goals >= 1 else "lost"
+    if market == "HOME_OVER_25": return "won" if home_goals >= 3 else "lost"
+    if market == "AWAY_OVER_25": return "won" if away_goals >= 3 else "lost"
     if market == "WIN_TO_NIL_HOME": return "won" if (home_win and away_goals == 0) else "lost"
     if market == "WIN_TO_NIL_AWAY": return "won" if (away_win and home_goals == 0) else "lost"
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import get_db
 from sports_models import Prediction, Fixture
+from picks import HIGH_ODDS_ONLY, SAFE_MARKET_LABELS
 
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -72,4 +73,32 @@ def get_results(limit: int = 30, db: Session = Depends(get_db)):
             "score": f"{fixture.home_goals}-{fixture.away_goals}" if fixture.home_goals is not None else "-",
         }
         for pred, fixture in chosen[:limit]
+    ]
+
+
+@router.get("/high-odds-wins")
+def get_high_odds_wins(limit: int = 20, db: Session = Depends(get_db)):
+    """The itemized receipts behind the high-odds record (e.g. 11/76):
+    every won prediction in a premium high-odds market, newest settled first."""
+    rows = db.query(Prediction, Fixture).join(
+        Fixture, Prediction.fixture_id == Fixture.id
+    ).filter(
+        Prediction.status == "won",
+        Prediction.market.in_(HIGH_ODDS_ONLY),
+    ).order_by(Prediction.settled_at.desc(), Prediction.id.desc()).limit(limit).all()
+
+    return [
+        {
+            "market": pred.market,
+            "market_label": SAFE_MARKET_LABELS.get(pred.market, pred.market),
+            "pick": pred.pick,
+            "probability": pred.probability,
+            "date": fixture.kickoff.isoformat() if fixture.kickoff else None,
+            "settled_at": pred.settled_at.isoformat() if pred.settled_at else None,
+            "home_team": fixture.home_team,
+            "away_team": fixture.away_team,
+            "league": fixture.league,
+            "score": f"{fixture.home_goals}-{fixture.away_goals}" if fixture.home_goals is not None else "-",
+        }
+        for pred, fixture in rows
     ]

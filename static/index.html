@@ -315,6 +315,15 @@ section{scroll-margin-top:90px}
   font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--gold-2)}
 .day-head:first-child{margin-top:0}
 .day-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(212,175,55,.4),rgba(212,175,55,0))}
+.hits{display:flex;flex-direction:column;gap:10px}
+.hit{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:rgba(212,175,55,.04)}
+.hit-check{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold-1) 0%,var(--gold-2) 60%,#b8932c 100%);color:var(--gold-ink)}
+.hit-check svg{width:14px;height:14px}
+.hit-body{flex:1;min-width:0}
+.hit-t{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-2)}
+.hit-p{font-weight:600;font-size:14.5px;color:var(--text-1);margin:3px 0 2px}
+.hit-s{font-size:12px;color:var(--text-2)}
+.hit .chip{flex:none}
 .pick{
   background:linear-gradient(165deg,var(--bg-2),var(--bg-1));
   border:1px solid var(--line-soft);border-radius:var(--r-lg);
@@ -851,6 +860,11 @@ tr:last-child td{border-bottom:none}
         <div class="skeleton sk-card"></div>
         <div class="skeleton sk-card"></div>
       </div>
+      <div class="board-tabs" style="margin-top:26px">
+        <span class="board-label">Recent high-odds hits</span>
+        <span class="board-note">The high-odds record, itemized · every longshot that landed, in public</span>
+      </div>
+      <div id="highOddsWins" class="hits"></div>
     </section>
 
     <!-- RESULTS -->
@@ -1453,6 +1467,34 @@ function renderTicker(rows) {
   track.innerHTML = items + items;
 }
 
+function renderHighOddsWins(rows) {
+  var el = $("highOddsWins");
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = '<div class="empty"><b>No high-odds hits graded yet.</b>When a longshot lands, the receipt shows up here.</div>';
+    return;
+  }
+  var html = "";
+  rows.slice(0, 10).forEach(function (r, i) {
+    var date = r.date ? new Date(r.date).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "—";
+    var delay = Math.min(i * 0.05, 0.5);
+    html +=
+      '<div class="hit" style="animation-delay:' + delay + 's">' +
+        '<span class="hit-check"><svg aria-hidden="true"><use href="#i-check"/></svg></span>' +
+        '<div class="hit-body">' +
+          '<div class="hit-t">' + escapeHTML(r.market_label || r.market || "High-odds market") + "</div>" +
+          '<div class="hit-p">' + escapeHTML(r.pick) + '</div>' +
+          '<div class="hit-s">' + escapeHTML(r.home_team) + " v " + escapeHTML(r.away_team) +
+            " · " + escapeHTML(r.score || "—") + " · " + escapeHTML(date) + "</div>" +
+        "</div>" +
+        (r.probability != null
+          ? '<span class="chip chip-confidence">was ' + escapeHTML(String(Math.round(r.probability * 100))) + "%</span>"
+          : "") +
+      "</div>";
+  });
+  el.innerHTML = html;
+}
+
 async function loadResults() {
   try {
     var data = await apiFetch("/history/results", { method: "GET" });
@@ -1462,6 +1504,12 @@ async function loadResults() {
     if ($("resultsPanel")) {
       $("resultsPanel").innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
     }
+  }
+  try {
+    var hits = await apiFetch("/history/high-odds-wins", { method: "GET" });
+    renderHighOddsWins(hits);
+  } catch (err) {
+    /* hits strip is best-effort; never break the ledger over it */
   }
 }
 
@@ -1768,5 +1816,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32aa2d14d4bfea4',t:'MTc4Nzk5Njg2NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32ed5f6cee5931d',t:'MTc4ODA0MDkwMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -393,14 +393,12 @@ def generate_predictions_for_fixture(db: Session, fixture, lh, la, data_quality)
         ))
         created += 1
 
-        htft = ht_ft_predictions(lh, la)
-    if htft:
-        # Product rule: never sell D/D (the boring low-odds default).
-        filtered = [opt for opt in htft if opt[0] != "D/D"]
-        pick, prob = (filtered or htft)[0]
+    # HT/FT: computed unconditionally (never crash a sync for one match),
+    # then apply the product rule once: never sell D/D (the boring low-odds default).
     htft = ht_ft_predictions(lh, la)
     if htft:
-        pick, prob = htft[0]
+        filtered = [opt for opt in htft if opt[0] != "D/D"]
+        pick, prob = (filtered or htft)[0]
         score, label = confidence_from_prob(prob)
         db.add(make_prediction(
             fixture_id=fixture.id, market="HTFT", pick=pick,
@@ -568,9 +566,14 @@ def sync_fixtures_and_predictions():
     counters = {"processed": 0, "generated": 0, "skipped": 0, "rated": 0, "unrated_skipped": 0}
     pairs = set()
 
-    # ---- football-data fixtures
+    # ---- football-data fixtures (one bad match must never freeze the whole board)
     for match in all_matches:
-        process_match(db, match, counters, pairs)
+        try:
+            process_match(db, match, counters, pairs)
+        except Exception as e:
+            db.rollback()
+            print(f"Match sync error (skipped, sync continues): {e}")
+            continue
 
     # ---- ESPN extra-league fixtures (4 days)
     print("Loading ESPN extra leagues...")
@@ -578,7 +581,12 @@ def sync_fixtures_and_predictions():
         for day_offset in range(0, 4):
             events = fetch_scoreboard(slug, today + timedelta(days=day_offset))
             for ev in events:
-                process_espn_event(db, ev, counters, pairs)
+                try:
+                    process_espn_event(db, ev, counters, pairs)
+                except Exception as e:
+                    db.rollback()
+                    print(f"ESPN event sync error (skipped, sync continues): {e}")
+                    continue
             time.sleep(0.15)
 
     print(f"Processed rated fixtures: {counters['processed']}")

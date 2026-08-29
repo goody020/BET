@@ -315,21 +315,6 @@ section{scroll-margin-top:90px}
   font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--gold-2)}
 .day-head:first-child{margin-top:0}
 .day-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(212,175,55,.4),rgba(212,175,55,0))}
-
-/* ============ SCANNER (premium raw model feed) ============ */
-.scan-note{border:1px dashed rgba(236,208,126,.35);border-radius:14px;padding:16px 18px;margin:-6px 0 22px;font-size:13.5px;line-height:1.65;color:var(--text-2);background:rgba(212,175,55,.04);max-width:80ch}
-.scan-note b{color:var(--gold-1);display:block;font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:6px}
-.scan-list{display:flex;flex-direction:column;gap:14px}
-.scan-fix{border:1px solid var(--line-soft);border-radius:var(--r-lg);background:linear-gradient(165deg,var(--bg-2),var(--bg-1));padding:20px 22px;animation:pickin .6s var(--ease) both}
-.scan-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
-.scan-teams{font-family:var(--disp);font-weight:600;font-size:17px;color:var(--text-1);margin:0 0 14px;letter-spacing:.01em;text-transform:uppercase}
-.scan-teams .vs{color:var(--gold-2);margin:0 9px;font-size:11px;letter-spacing:.15em}
-.scan-rows{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.scan-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
-.scan-row .sc-m{flex:1;min-width:0;font-weight:600;font-size:12.5px;color:var(--text-1)}
-.scan-row .sc-m small{display:block;font-weight:400;font-size:11px;color:var(--text-3);margin-top:1px}
-.scan-row .sc-p{flex:none;font-family:var(--mono);font-size:12px;color:var(--gold-1)}
-@media(max-width:720px){.scan-rows{grid-template-columns:1fr}}
 .hits{display:flex;flex-direction:column;gap:10px}
 .hit{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:rgba(212,175,55,.04)}
 .hit-check{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold-1) 0%,var(--gold-2) 60%,#b8932c 100%);color:var(--gold-ink)}
@@ -791,7 +776,6 @@ tr:last-child td{border-bottom:none}
             <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time multis &amp; HT draws</li>
             <li><svg aria-hidden="true"><use href="#i-check"/></svg>Win-by-2 margins</li>
             <li><svg aria-hidden="true"><use href="#i-check"/></svg>Team totals — over 2.5 goals for a side</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>The Scanner — every read the engine publishes, raw</li>
             <li><svg aria-hidden="true"><use href="#i-check"/></svg>Everything in the free board too</li>
           </ul>
         </div>
@@ -820,10 +804,6 @@ tr:last-child td{border-bottom:none}
       <button class="tab" data-tab="high-odds" role="tab" type="button">
         <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-bolt"/></svg>
         High-Odds <span class="cnt" data-cnt="high-odds">·</span>
-      </button>
-      <button class="tab" data-tab="scanner" role="tab" type="button">
-        <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-chart"/></svg>
-        Scanner <span class="cnt" data-cnt="scanner">·</span>
       </button>
       <button class="tab" data-tab="results" role="tab" type="button">
         <svg style="width:16px;height:16px" aria-hidden="true"><use href="#i-ledger"/></svg>
@@ -886,36 +866,6 @@ tr:last-child td{border-bottom:none}
         <span class="board-note">The high-odds record, itemized · every longshot that landed, in public</span>
       </div>
       <div id="highOddsWins" class="hits"></div>
-    </section>
-
-    <!-- SCANNER (premium raw model feed) -->
-    <section id="panel-scanner" class="tabpanel hidden" role="tabpanel">
-      <div class="app-head">
-        <span class="sec-num">ENGINE</span>
-        <h2>Model Scanner</h2>
-        <span class="spacer"></span>
-        <button class="btn btn-soft btn-sm" type="button" data-refresh="scanner">
-          <svg aria-hidden="true"><use href="#i-refresh"/></svg> Refresh
-        </button>
-      </div>
-      <div class="board-tabs">
-        <span class="board-label">Raw model feed</span>
-        <span class="board-note">Today + tomorrow · every read &ge; 30% · research, not endorsed picks</span>
-      </div>
-      <div class="scan-note">
-        <b>Read this first</b>
-        This is everything the engine sees, before curation — the same maths that feeds the daily card.
-        Most of these are <em>not</em> strong enough to be picks: that is exactly why the 10-pick card exists.
-        Treat it as a research tool. Scanner outcomes never appear in our public win record.
-      </div>
-      <div id="scannerGate" class="upsell hidden">
-        <div>
-          <div class="u-t">The Scanner is Premium-only</div>
-          <div class="u-s" id="scannerTeaser">Everything the model sees today — every read above 30% probability.</div>
-        </div>
-        <button class="btn btn-gold" type="button" data-upgrade><svg aria-hidden="true"><use href="#i-bolt"/></svg> Unlock With Premium</button>
-      </div>
-      <div id="scannerList" class="scan-list"></div>
     </section>
 
     <!-- RESULTS -->
@@ -1057,7 +1007,6 @@ let currentUser = null;
 let currentTab = null;
 let requestedTab = null;
 let picksData = null;
-let scannerData = null;
 const RING_C = 326.73;
 
 function $(id) { return document.getElementById(id); }
@@ -1121,7 +1070,6 @@ function clearSession() {
   localStorage.removeItem("user");
   currentUser = null;
   picksData = null;
-  scannerData = null;
   updateUI();
 }
 
@@ -1141,7 +1089,6 @@ var TAB_ALIASES = {
   "high-odds": "high-odds", "highodds": "high-odds", "premium-cards": "high-odds",
   "results": "results", "ledger": "results",
   "performance": "performance", "stats": "performance",
-  "scanner": "scanner", "scan": "scanner", "feed": "scanner",
   "admin": "admin"
 };
 
@@ -1159,11 +1106,9 @@ function selectTab(id, push) {
   document.querySelectorAll(".tabbar .tab").forEach(function (btn) {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === id);
   });
-  ["bankers", "high-odds", "results", "performance", "scanner", "admin"].forEach(function (t) {
+  ["bankers", "high-odds", "results", "performance", "admin"].forEach(function (t) {
     $("panel-" + t).classList.toggle("hidden", t !== id);
   });
-
-  if (id === "scanner") loadScanner();
 
   if (push !== false) {
     try { history.pushState(null, "", "#" + id); } catch (e) {}
@@ -1463,72 +1408,6 @@ async function loadPicks() {
   } catch (err) {
     $("bankerPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
     $("highOddsPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
-  }
-}
-
-/* ---------- SCANNER (premium raw model feed) ---------- */
-function renderScanner() {
-  var gate = $("scannerGate");
-  var list = $("scannerList");
-  var d = scannerData;
-  setTabCount("scanner", d && !d.locked && d.teaser ? d.teaser.reads : null);
-  if (!d) return;
-
-  if (d.locked) {
-    gate.classList.remove("hidden");
-    var t = d.teaser || { fixtures: 0, reads: 0 };
-    $("scannerTeaser").textContent =
-      "Right now the engine has " + t.reads + " reads across " + t.fixtures + " matches (all \u2265 " +
-      Math.round((d.min_probability || 0.3) * 100) + "%). Premium sees every one of them.";
-    list.innerHTML = "";
-    return;
-  }
-
-  gate.classList.add("hidden");
-  if (!d.fixtures.length) {
-    list.innerHTML = '<div class="empty"><b>No model reads above the floor right now.</b>The engine re-prices after every sync — check back soon.</div>';
-    return;
-  }
-
-  var groups = {};
-  var order = [];
-  d.fixtures.forEach(function (f) {
-    var dt = kickoffDateOf(f);
-    var k = dt ? calendarDayKey(dt) : Infinity;
-    if (!groups[k]) { groups[k] = []; order.push(k); }
-    groups[k].push(f);
-  });
-  order.sort(function (a, b) { return a - b; });
-
-  var html = "";
-  order.forEach(function (k) {
-    html += '<div class="day-head"><span>' + escapeHTML(k === Infinity ? "Upcoming" : dayHeaderLabel(k)) + "</span></div>";
-    groups[k].forEach(function (f) {
-      html +=
-        '<article class="scan-fix">' +
-          '<div class="scan-meta"><span>' + escapeHTML(f.league || "Football") + "</span><span>" + escapeHTML(kickoffLabel(f)) + "</span></div>" +
-          '<h3 class="scan-teams">' + escapeHTML(f.home_team) + '<span class="vs">V</span>' + escapeHTML(f.away_team) + "</h3>" +
-          '<div class="scan-rows">' +
-            f.picks.map(function (p) {
-              return '<div class="scan-row"><span class="sc-m">' + escapeHTML(p.market_label) +
-                "<small>" + escapeHTML(p.pick) + "</small></span>" +
-                '<span class="sc-p">' + pct(p.probability) + "</span></div>";
-            }).join("") +
-          "</div>" +
-        "</article>";
-    });
-  });
-  list.innerHTML = html;
-}
-
-async function loadScanner(force) {
-  if (!isAuthed()) return;
-  if (scannerData && !force) { renderScanner(); return; }
-  try {
-    scannerData = await apiFetch("/picks/scanner", { method: "GET" });
-    renderScanner();
-  } catch (err) {
-    $("scannerList").innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
   }
 }
 
@@ -1843,7 +1722,6 @@ document.addEventListener("click", function (e) {
   if ((t = e.target.closest('[data-refresh="picks"]'))) { loadPicks(); return; }
   if ((t = e.target.closest('[data-refresh="results"]'))) { loadResults(); return; }
   if ((t = e.target.closest('[data-refresh="performance"]'))) { loadPerformance(); return; }
-  if ((t = e.target.closest('[data-refresh="scanner"]'))) { loadScanner(true); return; }
 });
 
 /* close modals on backdrop + Escape */
@@ -1941,5 +1819,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32f6087bef5de8d',t:'MTc4ODA0NjU3Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32f23e67ce6662c',t:'MTc4ODA0NDA5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -723,7 +723,7 @@ tr:last-child td{border-bottom:none}
             <div class="ring-num" data-num>—</div>
           </div>
           <div class="ring-cap">High-Odds</div>
-          <div class="stat-sub">Premium longshots landed</div>
+          <div class="stat-sub">Dealt longshots landed</div>
         </div>
         <div class="stat reveal d2">
           <div class="ring">
@@ -1531,9 +1531,13 @@ function tweenNumber(el, target, suffix, decimals) {
   requestAnimationFrame(frame);
 }
 
-function renderPerformance(data) {
+function renderPerformance(data, card) {
   var el = $("performancePanel");
   if (!data) return;
+
+  var bankerCard = card && card.banker && card.banker.graded > 0 ? card.banker : null;
+  var highCard = card && card.high_odds && card.high_odds.graded > 0 ? card.high_odds : null;
+  var sinceLabel = card && card.since ? new Date(card.since + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : null;
 
   if (!data.total || data.total === 0) {
     el.innerHTML = '<div class="empty"><b>No settled predictions yet.</b>Performance metrics appear once the first picks are graded.</div>';
@@ -1547,12 +1551,22 @@ function renderPerformance(data) {
         '<div class="dnum"><b id="dialNum">0%</b><span>Win rate</span></div>' +
       "</div>" +
       '<div class="perf-stats">' +
-        '<div class="pstat"><div class="lab">Record</div><div class="val">' + escapeHTML(String(data.won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(data.total)) + "</span></div>" +
-          '<div class="sub">won of settled · ' + escapeHTML(String(data.lost)) + " lost" + (data.void ? " · " + escapeHTML(String(data.void)) + " void" : "") + "</div></div>" +
+        '<div class="pstat"><div class="lab">' + (bankerCard ? "Banker card record" : "Record") + '</div><div class="val">' +
+          (bankerCard
+            ? escapeHTML(String(bankerCard.won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(bankerCard.graded)) + "</span></div>" +
+              '<div class="sub">won of ' + escapeHTML(String(bankerCard.graded)) + " dealt banker picks" + (bankerCard.void ? " · " + escapeHTML(String(bankerCard.void)) + " void" : "") + "</div>"
+            : escapeHTML(String(data.won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(data.total)) + "</span></div>" +
+              '<div class="sub">won of settled · ' + escapeHTML(String(data.lost)) + " lost" + (data.void ? " · " + escapeHTML(String(data.void)) + " void" : "") + "</div>") +
+        "</div>" +
         '<div class="pstat"><div class="lab">Current streak</div><div class="val">' + escapeHTML(String(data.current_streak || "—")) + "</div>" +
           '<div class="sub">most recent main picks</div></div>' +
-        '<div class="pstat"><div class="lab">High-odds record</div><div class="val">' + escapeHTML(String(data.high_odds_won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(data.high_odds_total)) + "</span></div>" +
-          '<div class="sub">' + escapeHTML(String(data.high_odds_rate)) + "% of premium longshots landed</div></div>" +
+        '<div class="pstat"><div class="lab">' + (highCard ? "High-odds card record" : "High-odds record") + '</div><div class="val">' +
+          (highCard
+            ? escapeHTML(String(highCard.won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(highCard.graded)) + "</span></div>" +
+              '<div class="sub">' + escapeHTML(String(highCard.rate)) + "% of dealt longshots landed" + (highCard.void ? " · " + escapeHTML(String(highCard.void)) + " void" : "") + "</div>"
+            : escapeHTML(String(data.high_odds_won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(data.high_odds_total)) + "</span></div>" +
+              '<div class="sub">engine-wide: every longshot priced, incl. never dealt</div>') +
+        "</div>" +
         '<div class="pstat" style="grid-column:1/-1"><div class="lab">Last ' + ((data.last_10 || []).length || 10) + " picks — form</div>" +
           '<div class="form-dots">' +
             (data.last_10 || []).map(function (s) {
@@ -1560,25 +1574,30 @@ function renderPerformance(data) {
               return '<span class="form-dot ' + cls + '">' + escapeHTML(s) + "</span>";
             }).join("") +
           "</div></div>" +
-        '<div class="perf-cap">Graded by the settlement engine every 6 hours. <b>One main pick per match</b> — the highest-probability call — plus the separate high-odds record. Nothing hidden, nothing deleted.</div>' +
+        '<div class="perf-cap">Card records count <b>only picks actually dealt</b> on a frozen daily card' + (sinceLabel ? " (since " + escapeHTML(sinceLabel) + ")" : "") + ". Longshots the engine priced but never dealt count for nobody. Nothing hidden, nothing deleted.</div>" +
       "</div>" +
     "</div>";
 
   el.innerHTML = html;
 
+  var mainRate = bankerCard ? bankerCard.rate : data.win_rate;
   var fg = $("dialFg");
-  fg.style.strokeDashoffset = RING_C - (Math.min(data.win_rate, 100) / 100) * RING_C;
-  tweenNumber($("dialNum"), data.win_rate, "%", 1);
+  fg.style.strokeDashoffset = RING_C - (Math.min(mainRate, 100) / 100) * RING_C;
+  tweenNumber($("dialNum"), mainRate, "%", 1);
 }
 
-function loadStatsStrip(d) {
+function loadStatsStrip(d, card) {
   var strip = $("statsStrip");
   if (!strip || !d) return;
   var cards = strip.querySelectorAll(".stat");
   if (cards.length < 4) return;
 
-  var winRate = d.win_rate || 0;
-  var hoRate = d.high_odds_total > 0 ? Math.round((d.high_odds_won / d.high_odds_total) * 100) : 0;
+  var bankerCard = card && card.banker && card.banker.graded > 0 ? card.banker : null;
+  var highCard = card && card.high_odds && card.high_odds.graded > 0 ? card.high_odds : null;
+
+  var winRate = bankerCard ? Math.round(bankerCard.rate) : (d.win_rate || 0);
+  var hoRate = highCard ? Math.round(highCard.rate) : (d.high_odds_total > 0 ? Math.round((d.high_odds_won / d.high_odds_total) * 100) : 0);
+  var hoLabel = highCard ? (highCard.won + "/" + highCard.graded) : (d.high_odds_won + "/" + d.high_odds_total);
   var settled = d.total || 0;
 
   function setRing(idx, frac, label) {
@@ -1589,7 +1608,7 @@ function loadStatsStrip(d) {
   }
 
   setRing(0, winRate / 100, winRate + "%");
-  setRing(1, hoRate / 100, d.high_odds_won + "/" + d.high_odds_total);
+  setRing(1, hoRate / 100, hoLabel);
   setRing(2, Math.min(settled / 100, 1), settled);
   setRing(3, d.current_streak ? 1 : 0, d.current_streak || "0");
 }
@@ -1597,8 +1616,10 @@ function loadStatsStrip(d) {
 async function loadPerformance() {
   try {
     var data = await apiFetch("/performance/summary", { method: "GET" });
-    renderPerformance(data);
-    loadStatsStrip(data);
+    var card = null;
+    try { card = await apiFetch("/history/card-record", { method: "GET" }); } catch (e2) { card = null; }
+    renderPerformance(data, card);
+    loadStatsStrip(data, card);
   } catch (err) {
     if ($("performancePanel")) {
       $("performancePanel").innerHTML = '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
@@ -1819,5 +1840,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32f23e67ce6662c',t:'MTc4ODA0NDA5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32f9586bbfc1489',t:'MTc4ODA0ODc0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

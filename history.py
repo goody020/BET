@@ -162,3 +162,61 @@ def get_high_odds_wins(limit: int = 20, db: Session = Depends(get_db)):
         }
         for pred, fixture in receipts
     ]
+
+
+def _pin_ids_by_kind(db: Session, kind: str):
+    """(pinned_ids, earliest_day_str) for one board ('safe' / 'bonus')."""
+    ids = set()
+    earliest = None
+    rows = db.query(AutomationState).filter(
+        AutomationState.state_key.like(f"{PIN_PREFIX}:{kind}:%")
+    ).all()
+    for row in rows:
+        try:
+            day = datetime.fromisoformat(row.state_key.rsplit(":", 1)[1]).date()
+            earliest = day if earliest is None else min(earliest, day)
+        except Exception:
+            continue
+        value = (row.state_value or "").strip()
+        if value and value != "-":
+            for token in value.split(","):
+                token = token.strip()
+                if token.isdigit():
+                    ids.add(int(token))
+    return ids, (earliest.isoformat() if earliest else None)
+
+
+@router.get("/card-record")
+def get_card_record(db: Session = Depends(get_db)):
+    """The record of what was ACTUALLY DEALT — settled picks that sat on a
+    pinned daily card. This is the number that represents the product:
+    longshots the engine priced but never put on a card count for nobody.
+    Rate = won / (won + lost); voids (e.g. refunded DNB) reported separately."""
+
+    def tally(kind):
+        ids, since = _pin_ids_by_kind(db, kind)
+        won = lost = void = 0
+        if ids:
+            for (status,) in db.query(Prediction.status).filter(
+                Prediction.id.in_(ids), Prediction.status != "pending"
+            ).all():
+                if status == "won":
+                    won += 1
+                elif status == "lost":
+                    lost += 1
+                else:
+                    void += 1
+        graded = won + lost
+        return {
+            "won": won,
+            "lost": lost,
+            "void": void,
+            "graded": graded,
+            "rate": round(won / graded * 100, 1) if graded else None,
+            "since": since,
+        }
+
+    banker = tally("safe")
+    high = tally("bonus")
+    days = [d for d in (banker["since"], high["since"]) if d]
+    return {"since": min(days) if days else None, "banker": banker, "high_odds": high}

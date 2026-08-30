@@ -306,8 +306,10 @@ def store_board_pins(db: Session, day: date):
     for kind, value in payload.items():
         db.add(AutomationState(state_key=_pin_key(kind, day), state_value=value if value else "-"))
 
-    # tidy: drop pins older than 3 days
-    cutoff_key = _pin_key("safe", day - timedelta(days=3))
+    # tidy: pins are the permanent audit trail (they anchor both the public
+    # receipts AND the dealt-card performance record), so keep them long.
+    # ~2 tiny rows/day — 180 days costs nothing.
+    cutoff_key = _pin_key("safe", day - timedelta(days=180))
     for row in db.query(AutomationState).filter(AutomationState.state_key.like(f"{PIN_PREFIX}:%")).all():
         if row.state_key < cutoff_key:
             db.delete(row)

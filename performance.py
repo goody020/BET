@@ -3,16 +3,16 @@ from sqlalchemy.orm import Session
 
 from app import get_db
 from sports_models import Prediction, Fixture
+from picks import PREMIUM_MARKETS
+from history import get_card_record
 
 
 router = APIRouter(prefix="/performance", tags=["performance"])
 
-HIGH_ODDS_SET = {
-    "HOME_MULTI_LOW", "HOME_MULTI_HIGH", "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
-    "DRAW_MULTI", "HOME_MARGIN_2", "AWAY_MARGIN_2",
-    "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI",
-    "CS", "HTFT",
-}
+# Pool telemetry set = every market the premium boards can deal.
+# (Imported from picks.py so the tracker can never drift from the product:
+# BTTS+O25, win-to-nil and team totals are included here.)
+HIGH_ODDS_SET = PREMIUM_MARKETS
 
 
 @router.get("/summary")
@@ -36,7 +36,10 @@ def performance_summary(db: Session = Depends(get_db)):
     total = won + lost
     win_rate = round(won / total * 100, 1) if total else 0.0
 
-    # High-odds record (all settled high-odds picks)
+    # High-odds POOL (engine telemetry: every premium longshot priced —
+    # most of which were never dealt on a card). The PUBLIC headline record
+    # is the dealt-card record below, served via /history/card-record and
+    # mirrored into this payload under "card_record".
     ho = [p for p, f in rows if p.market in HIGH_ODDS_SET and p.status in ("won", "lost")]
     ho_won = sum(1 for p in ho if p.status == "won")
     ho_total = len(ho)
@@ -67,6 +70,16 @@ def performance_summary(db: Session = Depends(get_db)):
     for m in market_list:
         m["win_rate"] = round(m["won"] / m["total"] * 100, 1) if m["total"] else 0.0
 
+    # Dealt-card record: settled picks that actually sat on a pinned daily
+    # card. Single source of truth lives in history.py — never reimplement.
+    try:
+        card_record = get_card_record(db=db)
+    except Exception:
+        card_record = None
+
+    banker_card = (card_record or {}).get("banker") or {}
+    high_card = (card_record or {}).get("high_odds") or {}
+
     payload = {
         "total": total,
         "won": won,
@@ -83,6 +96,15 @@ def performance_summary(db: Session = Depends(get_db)):
         "last_10": last_10,
         "current_streak": streak_text,
         "market_stats": market_list,
+        # dealt-card record (the number that represents the product)
+        "card_record": card_record,
+        "banker_card_won": banker_card.get("won", 0),
+        "banker_card_total": banker_card.get("graded", 0),
+        "banker_card_rate": banker_card.get("rate"),
+        "high_odds_card_won": high_card.get("won", 0),
+        "high_odds_card_total": high_card.get("graded", 0),
+        "high_odds_card_rate": high_card.get("rate"),
+        "card_since": (card_record or {}).get("since"),
     }
     payload["summary"] = {
         "total": total,

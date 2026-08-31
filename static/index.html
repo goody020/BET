@@ -863,7 +863,7 @@ tr:last-child td{border-bottom:none}
       </div>
       <div class="board-tabs" style="margin-top:26px">
         <span class="board-label">Recent high-odds hits</span>
-        <span class="board-note">The high-odds record, itemized · every longshot that landed, in public</span>
+        <span class="board-note">The high-odds record, itemized · only card-dealt longshots, in public</span>
       </div>
       <div id="highOddsWins" class="hits"></div>
     </section>
@@ -1472,7 +1472,7 @@ function renderHighOddsWins(rows) {
   var el = $("highOddsWins");
   if (!el) return;
   if (!rows || !rows.length) {
-    el.innerHTML = '<div class="empty"><b>No high-odds hits graded yet.</b>When a longshot lands, the receipt shows up here.</div>';
+    el.innerHTML = '<div class="empty"><b>No dealt high-odds winners yet.</b>Only longshots that were actually dealt on a daily card are celebrated here — when one lands, the receipt appears.</div>';
     return;
   }
   var html = "";
@@ -1560,12 +1560,14 @@ function renderPerformance(data, card) {
         "</div>" +
         '<div class="pstat"><div class="lab">Current streak</div><div class="val">' + escapeHTML(String(data.current_streak || "—")) + "</div>" +
           '<div class="sub">most recent main picks</div></div>' +
-        '<div class="pstat"><div class="lab">' + (highCard ? "High-odds card record" : "High-odds record") + '</div><div class="val">' +
+        '<div class="pstat"><div class="lab">High-odds card record</div><div class="val">' +
           (highCard
             ? escapeHTML(String(highCard.won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(highCard.graded)) + "</span></div>" +
               '<div class="sub">' + escapeHTML(String(highCard.rate)) + "% of dealt longshots landed" + (highCard.void ? " · " + escapeHTML(String(highCard.void)) + " void" : "") + "</div>"
-            : escapeHTML(String(data.high_odds_won)) + '<span style="color:var(--text-3);font-size:22px"> / ' + escapeHTML(String(data.high_odds_total)) + "</span></div>" +
-              '<div class="sub">engine-wide: every longshot priced, incl. never dealt</div>') +
+            : '<span style="color:var(--text-3)">—</span></div>' +
+              '<div class="sub">' + (card && card.high_odds && card.high_odds.since
+                ? "today's dealt longshots are still playing — grades land after full-time"
+                : "begins with the first settled card pick — pool reads are never counted here") + "</div>") +
         "</div>" +
         '<div class="pstat" style="grid-column:1/-1"><div class="lab">Last ' + ((data.last_10 || []).length || 10) + " picks — form</div>" +
           '<div class="form-dots">' +
@@ -1596,8 +1598,10 @@ function loadStatsStrip(d, card) {
   var highCard = card && card.high_odds && card.high_odds.graded > 0 ? card.high_odds : null;
 
   var winRate = bankerCard ? Math.round(bankerCard.rate) : (d.win_rate || 0);
-  var hoRate = highCard ? Math.round(highCard.rate) : (d.high_odds_total > 0 ? Math.round((d.high_odds_won / d.high_odds_total) * 100) : 0);
-  var hoLabel = highCard ? (highCard.won + "/" + highCard.graded) : (d.high_odds_won + "/" + d.high_odds_total);
+  // High-odds shows ONLY dealt card picks. Never pool reads — when nothing
+  // has graded yet, an honest dash beats a number nobody was dealt.
+  var hoRate = highCard ? Math.round(highCard.rate) : 0;
+  var hoLabel = highCard ? (highCard.won + "/" + highCard.graded) : "—";
   var settled = d.total || 0;
 
   function setRing(idx, frac, label) {
@@ -1840,5 +1844,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a32f9586bbfc1489',t:'MTc4ODA0ODc0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a33d98186f20971d',t:'MTc4ODE5NTY1NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

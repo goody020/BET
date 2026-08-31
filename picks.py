@@ -309,9 +309,16 @@ def store_board_pins(db: Session, day: date):
     # tidy: pins are the permanent audit trail (they anchor both the public
     # receipts AND the dealt-card performance record), so keep them long.
     # ~2 tiny rows/day — 180 days costs nothing.
-    cutoff_key = _pin_key("safe", day - timedelta(days=180))
+    # NOTE: compare parsed DAYS, never raw key strings — "boardpin:bonus:..."
+    # sorts before "boardpin:safe:..." alphabetically ('b' < 's'), so a naive
+    # string cutoff silently deletes EVERY bonus pin at the next sync.
+    cutoff_day = day - timedelta(days=180)
     for row in db.query(AutomationState).filter(AutomationState.state_key.like(f"{PIN_PREFIX}:%")).all():
-        if row.state_key < cutoff_key:
+        try:
+            row_day = date.fromisoformat(row.state_key.rsplit(":", 1)[1])
+        except Exception:
+            continue
+        if row_day < cutoff_day:
             db.delete(row)
 
     db.commit()

@@ -482,6 +482,13 @@ tr:last-child td{border-bottom:none}
 .field label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
 .field input{width:100%;padding:14px 16px;border-radius:12px;font-size:15px;background:rgba(0,0,0,.35);border:1px solid var(--line-soft);color:var(--text-1);transition:border-color .25s,box-shadow .25s;font-family:var(--body)}
 .field input:focus{outline:none;border-color:var(--gold-2);box-shadow:0 0 0 3px rgba(212,175,55,.18)}
+
+/* inline auth errors — visible where the eyes are, not a fading toast */
+.auth-err{border:1px solid rgba(255,110,110,.45);background:rgba(255,70,70,.09);color:#ffadad;
+  padding:12px 16px;border-radius:12px;font-size:13px;line-height:1.5;margin-bottom:16px;
+  animation:errin .28s var(--ease)}
+.auth-err b{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:#ff8787;margin-bottom:4px}
+@keyframes errin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .auth-fine{font-size:12px;color:var(--text-3);text-align:center;margin-top:18px}
 .legal-body h2{font-family:var(--disp);font-weight:700;color:var(--gold-1);margin:0 0 18px;letter-spacing:.03em;text-transform:uppercase;font-size:22px}
 .legal-body p{color:var(--text-2);font-size:14.5px}
@@ -961,6 +968,7 @@ tr:last-child td{border-bottom:none}
       <button id="tabLogin" class="auth-tab active" type="button">Login</button>
       <button id="tabRegister" class="auth-tab" type="button">Register</button>
     </div>
+    <div id="authError" class="auth-err hidden" role="alert"></div>
 
     <form id="loginForm">
       <div class="field">
@@ -1174,19 +1182,52 @@ function openAuthModal() {
     selectTab("bankers");
     return;
   }
+  hideAuthError();
   $("authModal").classList.add("open");
   var f = $("loginEmail");
   setTimeout(function () { if (f) f.focus(); }, 60);
 }
 function closeAuthModal() { $("authModal").classList.remove("open"); }
 
+/* ---------- INLINE AUTH ERRORS ---------- */
+function showAuthError(message) {
+  var el = $("authError");
+  if (!el) return;
+  var m = String(message || "Something went wrong. Try again.");
+  var lower = m.toLowerCase();
+  var title = "Hold on";
+  var body = m;
+  if (lower.indexOf("invalid email or password") >= 0 || lower.indexOf("invalid credential") >= 0 ||
+      lower.indexOf("incorrect") >= 0 || lower.indexOf("unauthorized") >= 0) {
+    title = "Wrong email or password";
+    body = "Check both fields and try again. We can't say which one is wrong — that protects every account on here.";
+  } else if (lower.indexOf("already") >= 0 || lower.indexOf("exists") >= 0 || lower.indexOf("taken") >= 0) {
+    title = "That email is taken";
+    body = "An account with this email already exists — switch to Login instead.";
+  } else if (lower.indexOf("valid email") >= 0 || lower.indexOf("@-sign") >= 0 || lower.indexOf("no valid email") >= 0) {
+    title = "Email doesn't look right";
+    body = "Please type a valid email address, e.g. your@email.com.";
+  } else if (lower.indexOf("password") >= 0 && (lower.indexOf("8") >= 0 || lower.indexOf("short") >= 0 || lower.indexOf("least") >= 0)) {
+    title = "Password too short";
+    body = "Use at least 8 characters.";
+  }
+  el.innerHTML = "<b>" + escapeHTML(title) + "</b>" + escapeHTML(body);
+  el.classList.remove("hidden");
+}
+function hideAuthError() {
+  var el = $("authError");
+  if (el) el.classList.add("hidden");
+}
+
 function showLogin() {
+  hideAuthError();
   $("loginForm").classList.remove("hidden");
   $("registerForm").classList.add("hidden");
   $("tabLogin").classList.add("active");
   $("tabRegister").classList.remove("active");
 }
 function showRegister() {
+  hideAuthError();
   $("loginForm").classList.add("hidden");
   $("registerForm").classList.remove("hidden");
   $("tabRegister").classList.add("active");
@@ -1197,6 +1238,7 @@ $("tabRegister").addEventListener("click", showRegister);
 
 $("loginForm").addEventListener("submit", async function (e) {
   e.preventDefault();
+  hideAuthError();
   var email = $("loginEmail").value.trim();
   var password = $("loginPassword").value;
   try {
@@ -1209,12 +1251,13 @@ $("loginForm").addEventListener("submit", async function (e) {
     showMessage("Welcome back — the board is unlocked.", "success");
     $("loginForm").reset();
   } catch (err) {
-    showMessage(err.message, "error");
+    showAuthError(err.message);
   }
 });
 
 $("registerForm").addEventListener("submit", async function (e) {
   e.preventDefault();
+  hideAuthError();
   var email = $("registerEmail").value.trim();
   var password = $("registerPassword").value;
   try {
@@ -1231,7 +1274,7 @@ $("registerForm").addEventListener("submit", async function (e) {
     showMessage("Account created — your free banker picks are live.", "success");
     $("registerForm").reset();
   } catch (err) {
-    showMessage(err.message, "error");
+    showAuthError(err.message);
   }
 });
 
@@ -1844,5 +1887,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a33d98186f20971d',t:'MTc4ODE5NTY1NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a34630739e729ffc',t:'MTc4ODI4NTc4MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

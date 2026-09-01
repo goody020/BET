@@ -538,7 +538,7 @@ tr:last-child td{border-bottom:none}
 
 /* ============ FOOTER ============ */
 .site-foot{margin-top:100px;border-top:1px solid var(--line-soft);background:linear-gradient(180deg,transparent,rgba(212,175,55,.03));position:relative;z-index:1}
-.foot-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;padding:56px 0 36px}
+.foot-grid{display:grid;grid-template-columns:1.2fr .7fr .7fr;gap:40px;padding:56px 0 36px}
 .foot-brand p{color:var(--text-3);font-size:13px;max-width:36ch;margin:14px 0 0}
 .foot-links{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 .foot-links span{font-family:var(--mono);font-size:10px;letter-spacing:.26em;color:var(--text-3);text-transform:uppercase;margin-bottom:4px}
@@ -546,6 +546,36 @@ tr:last-child td{border-bottom:none}
 .foot-links a:hover{color:var(--gold-1)}
 .foot-base{border-top:1px solid var(--line-soft);padding:22px 0 30px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text-3)}
 .age-badge{font-family:var(--mono);font-weight:600;font-size:12px;color:var(--loss);border:1.5px solid var(--loss);border-radius:8px;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center}
+
+/* ============ SUPPORT ============ */
+.support-fab{position:fixed;right:22px;bottom:22px;z-index:150;display:inline-flex;align-items:center;gap:9px;padding:13px 20px;border-radius:999px;background:linear-gradient(165deg,var(--bg-3),var(--bg-1));border:1px solid var(--gold-1);color:var(--gold-2);font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.22em;cursor:pointer;box-shadow:0 12px 40px -10px rgba(0,0,0,.8),0 0 24px -6px var(--gold-glow);transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.support-fab:hover{transform:translateY(-2px);box-shadow:0 16px 50px -10px rgba(0,0,0,.85),0 0 34px -4px var(--gold-glow)}
+.support-fab svg{width:15px;height:15px;flex:none}
+.support-panel{position:fixed;right:22px;bottom:80px;z-index:150;width:min(360px,calc(100vw - 24px));background:linear-gradient(165deg,var(--bg-3),var(--bg-1));border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;display:none;box-shadow:0 40px 100px -30px rgba(0,0,0,.9),0 0 60px -20px var(--gold-glow)}
+.support-panel.open{display:block;animation:rise .35s var(--ease)}
+.support-x{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--line-soft);color:var(--text-2);font-size:17px;cursor:pointer;transition:all .2s;line-height:1}
+.support-x:hover{color:var(--gold-2);border-color:var(--gold-1)}
+.support-kicker{font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;color:var(--gold-2);text-transform:uppercase}
+.support-head h3{margin:8px 0 6px;font-size:19px;letter-spacing:.01em}
+.support-head p{margin:0 0 16px;color:var(--text-3);font-size:13px;line-height:1.55}
+.support-label{font-family:var(--mono);font-size:9px;letter-spacing:.24em;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:8px}
+.support-topics{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+.support-topic{padding:7px 11px;border-radius:8px;border:1px solid var(--line-soft);background:rgba(255,255,255,.03);color:var(--text-2);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .18s}
+.support-topic:hover{border-color:var(--gold-1)}
+.support-topic.active{border-color:var(--gold-1);color:var(--gold-2);background:rgba(212,175,55,.08);box-shadow:0 0 14px -4px var(--gold-glow)}
+.support-send{display:flex;align-items:center;gap:12px;width:100%;padding:13px 15px;border-radius:12px;text-decoration:none;border:1px solid rgba(255,255,255,.09);margin-bottom:9px;transition:all .18s;background:rgba(255,255,255,.02)}
+.support-send svg{width:19px;height:19px;flex:none}
+.support-send b{display:block;font-size:13.5px;font-weight:600;letter-spacing:.02em}
+.support-send small{display:block;font-size:11px;color:var(--text-3);margin-top:2px;line-height:1.4}
+.support-send.wa{color:#86efac;border-color:rgba(74,222,128,.32)}
+.support-send.wa:hover{background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.6);transform:translateY(-1px)}
+.support-send.mail{color:var(--gold-2);border-color:rgba(236,208,126,.32)}
+.support-send.mail:hover{background:rgba(212,175,55,.07);border-color:var(--gold-1);transform:translateY(-1px)}
+.support-note{margin:4px 0 0;font-size:11px;color:var(--text-3);line-height:1.55}
+@media (max-width:760px){
+  .support-fab{right:14px;bottom:14px;padding:11px 16px}
+  .support-panel{right:12px;bottom:70px}
+}
 
 .hidden{display:none !important}
 .muted{color:var(--text-2)}
@@ -965,6 +995,11 @@ tr:last-child td{border-bottom:none}
         <a href="#" data-legal="refund">Refund Policy</a>
         <a href="#" data-legal="disclaimer">Responsible Gambling</a>
       </div>
+      <div class="foot-links">
+        <span>Help</span>
+        <a href="#" data-support-toggle>Support &amp; Complaints</a>
+        <a href="#" id="footSupportMail">Email us</a>
+      </div>
     </div>
     <div class="foot-base">
       <span>&copy; 2026 ValueBets Analytics · Lagos, Nigeria</span>
@@ -1021,6 +1056,36 @@ tr:last-child td{border-bottom:none}
     <button class="modal-x" type="button" data-close-legal aria-label="Close">&times;</button>
     <div id="legalContent" class="legal-body"></div>
   </div>
+</div>
+
+<!-- ============ SUPPORT ============ -->
+<button class="support-fab" id="supportFab" type="button" data-support-toggle aria-label="Contact support" aria-expanded="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  SUPPORT
+</button>
+<div class="support-panel" id="supportPanel" role="dialog" aria-label="Contact support">
+  <button class="support-x" type="button" data-support-toggle aria-label="Close support panel">&times;</button>
+  <div class="support-head">
+    <span class="support-kicker">Get in touch</span>
+    <h3>Talk to a human</h3>
+    <p>Payment problem, a result graded wrong, account trouble — message us and a real person replies, usually the same day.</p>
+  </div>
+  <span class="support-label">What's it about?</span>
+  <div class="support-topics">
+    <button class="support-topic active" type="button" data-support-topic="Payment / Premium activation">Payment / Premium</button>
+    <button class="support-topic" type="button" data-support-topic="Wrong result / settlement">Wrong settlement</button>
+    <button class="support-topic" type="button" data-support-topic="Account or login problem">Account</button>
+    <button class="support-topic" type="button" data-support-topic="Something else">Something else</button>
+  </div>
+  <a class="support-send wa" id="supportWa" href="#" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    <span><b>WhatsApp us</b><small>Fastest — opens a chat with your details pre-filled</small></span>
+  </a>
+  <a class="support-send mail" id="supportMail" href="#">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    <span><b>Email us</b><small>Good for complaints you want in writing</small></span>
+  </a>
+  <p class="support-note">Your account email and topic are attached automatically so we can find you fast. Never send your password to anyone — we will never ask for it. 18+.</p>
 </div>
 
 <script>
@@ -1833,8 +1898,51 @@ function showLegal(type) {
 window.showLegal = showLegal;
 
 /* ---------- GLOBAL CLICK DELEGATION ---------- */
+/* ---------- SUPPORT ---------- */
+/* Owner: these two values are the ONLY things to fill in.
+   whatsapp = full number with country code, digits only (e.g. "2348012345678")
+   email    = the inbox you actually check                                              */
+var SUPPORT_CFG = {
+  whatsapp: "2348089500156",
+  email: "baddoosha1999@gmail.com"
+};
+var supportTopic = "Payment / Premium activation";
+
+function supportAccount() {
+  return (currentUser && currentUser.email) ? currentUser.email : "not logged in";
+}
+function supportMessage() {
+  return "Hi ValueBets — I need help.\n\nAccount: " + supportAccount() + "\nTopic: " + supportTopic + "\n\nMy message:\n";
+}
+function updateSupportLinks() {
+  var wa = $("supportWa"), mail = $("supportMail"), foot = $("footSupportMail");
+  if (wa) wa.href = "https://wa.me/" + SUPPORT_CFG.whatsapp + "?text=" + encodeURIComponent(supportMessage());
+  if (mail) mail.href = "mailto:" + SUPPORT_CFG.email + "?subject=" + encodeURIComponent("[ValueBets] " + supportTopic + " — " + supportAccount()) + "&body=" + encodeURIComponent(supportMessage());
+  if (foot) { foot.textContent = SUPPORT_CFG.email; foot.href = "mailto:" + SUPPORT_CFG.email; }
+}
+function toggleSupport(force) {
+  var panel = $("supportPanel");
+  if (!panel) return;
+  var open = (typeof force === "boolean") ? force : !panel.classList.contains("open");
+  panel.classList.toggle("open", open);
+  var fab = $("supportFab");
+  if (fab) fab.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) updateSupportLinks();
+}
+function selectSupportTopic(btn) {
+  supportTopic = btn.getAttribute("data-support-topic");
+  document.querySelectorAll(".support-topic").forEach(function (b) { b.classList.toggle("active", b === btn); });
+  updateSupportLinks();
+}
+updateSupportLinks();
+
 document.addEventListener("click", function (e) {
   var t;
+  /* support panel: close when tapping anywhere outside it or its toggles */
+  var sp = $("supportPanel");
+  if (sp && sp.classList.contains("open") && !e.target.closest("#supportPanel") && !e.target.closest("[data-support-toggle]")) sp.classList.remove("open");
+  if ((t = e.target.closest("[data-support-toggle]"))) { e.preventDefault(); toggleSupport(); return; }
+  if ((t = e.target.closest("[data-support-topic]"))) { selectSupportTopic(t); return; }
   if ((t = e.target.closest("[data-open-auth]"))) { openAuthModal(); return; }
   if ((t = e.target.closest("[data-close-auth]"))) { closeAuthModal(); return; }
   if ((t = e.target.closest("[data-upgrade]"))) { startCheckout(); return; }
@@ -1854,6 +1962,7 @@ document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
     closeAuthModal();
     $("legalModal").classList.remove("open");
+    toggleSupport(false);
   }
 });
 
@@ -1942,5 +2051,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a34740f91cf28614',t:'MTc4ODI5Njk0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a347938a1a9e1606',t:'MTc4ODMwMDMyNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

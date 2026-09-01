@@ -338,6 +338,24 @@ section{scroll-margin-top:90px}
   transform:scaleY(0);transition:transform .35s var(--ease);transform-origin:top;
 }
 .pick:hover{transform:translateY(-3px);border-color:rgba(236,208,126,.35);box-shadow:0 22px 42px -22px rgba(212,175,55,.3)}
+
+/* ============ ACCA OF THE DAY ============ */
+.acca{border:1px solid rgba(236,208,126,.45);border-radius:var(--r-lg);
+  background:radial-gradient(500px 220px at 20% 0%,rgba(212,175,55,.12),transparent 60%),linear-gradient(165deg,#151009,var(--bg-1));
+  padding:22px 24px;margin-bottom:22px;position:relative;overflow:hidden;animation:pickin .6s var(--ease) both}
+.acca-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.acca-tag{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-1)}
+.acca-legs{display:flex;flex-direction:column;gap:8px}
+.acca-leg{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+.acca-leg .al-l{min-width:0}
+.acca-leg .al-t{display:block;font-weight:600;font-size:13px;color:var(--text-1)}
+.acca-leg .al-m{display:block;font-size:11.5px;color:var(--text-3);margin-top:1px}
+.acca-leg .al-p{flex:none;font-family:var(--mono);font-size:12px;color:var(--gold-1)}
+.acca-note{margin-top:12px;font-size:12px;color:var(--text-3)}
+.tier-chip{flex:none;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.2em;padding:3px 8px;border-radius:6px;border:1px solid;white-space:nowrap}
+.tier-CORE{color:#84e6ac;border-color:rgba(110,220,150,.4);background:rgba(110,220,150,.06)}
+.tier-EDGE{color:var(--gold-2);border-color:rgba(236,208,126,.4);background:rgba(212,175,55,.06)}
+.tier-LOTTERY{color:#cfaaff;border-color:rgba(190,150,255,.4);background:rgba(160,110,255,.06)}
 .pick:hover::before{transform:scaleY(1)}
 .pick-meta{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .pick-league{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-2)}
@@ -773,16 +791,15 @@ tr:last-child td{border-bottom:none}
       </div>
       <div class="premium reveal">
         <div class="prem-copy">
-          <span class="prem-eyebrow">The high-odds cards</span>
-          <h3>Bigger Odds.<br/><em>Same Honest Maths.</em></h3>
-          <p>Our model's longshot board — low probability by definition, priced fairly, tracked publicly.</p>
+          <span class="prem-eyebrow">The premium card</span>
+          <h3>Bigger Odds.<br/><em>Tiered By Survival.</em></h3>
+          <p>Not eight lottery tickets — a structured card: what lands often, what lands sometimes, and one honest lottery.</p>
           <ul class="prem-list">
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Multiscores — 1-0/2-0 bands, 2-1/3-1 bands</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Correct scores (only when the model sees real signal)</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time / full-time doubles</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Half-time multis &amp; HT draws</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Win-by-2 margins</li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Team totals — over 2.5 goals for a side</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><b>Acca of the Day</b> — the two strongest banker legs, combined</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Value core — BTTS &amp; Over 2.5, our best-landing premium market</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Attack tier — home win-by-2 &amp; multiscore bands</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>One lottery slot — correct score or HT/FT, clearly labeled</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Every tier tracked separately in the public record</li>
             <li><svg aria-hidden="true"><use href="#i-check"/></svg>Everything in the free board too</li>
           </ul>
         </div>
@@ -794,7 +811,7 @@ tr:last-child td{border-bottom:none}
             Upgrade To Premium
           </button>
           <div class="prem-fine">Secure checkout via Paystack · Cards, transfer &amp; USSD</div>
-          <div class="prem-honest"><b>Straight talk:</b> high-odds cards land less often — that's the maths. We publish the hit rate either way.</div>
+          <div class="prem-honest"><b>Straight talk:</b> the core and acca land most days; the lottery slot lands when it lands — that's why it's labeled a lottery. We publish every tier's record either way.</div>
         </div>
       </div>
     </section>
@@ -855,15 +872,16 @@ tr:last-child td{border-bottom:none}
       </div>
       <div id="upsellBanner" class="upsell hidden">
         <div>
-          <div class="u-t">These cards are Premium-only</div>
-          <div class="u-s">₦10,000 / 30 days · multiscores, correct scores, HT/FT, margins</div>
+          <div class="u-t">This card is Premium-only</div>
+          <div class="u-s">₦10,000 / 30 days · daily acca, BTTS &amp; Over 2.5 core, attack tiers, one lottery</div>
         </div>
         <button class="btn btn-gold" type="button" data-upgrade><svg aria-hidden="true"><use href="#i-bolt"/></svg> Unlock With Premium</button>
       </div>
       <div class="board-tabs">
-        <span class="board-label">Longshot board</span>
-        <span class="board-note">Low probability · big odds · tracked in public</span>
+        <span class="board-label">Premium card</span>
+        <span class="board-note">Tiered deal — acca, value core, attack, one labeled lottery · tracked in public</span>
       </div>
+      <div id="accaHero"></div>
       <div id="highOddsPicks" class="picks-grid">
         <div class="skeleton sk-card"></div>
         <div class="skeleton sk-card"></div>
@@ -1295,6 +1313,8 @@ async function startCheckout() {
 }
 
 /* ---------- PICKS ---------- */
+var TIER_LABELS = { CORE: "VALUE CORE", EDGE: "ATTACK TIER", LOTTERY: "LOTTERY" };
+
 function pickCard(p, i) {
   var delay = Math.min((i || 0) * 0.07, 0.5);
   var html = '<article class="pick' + (p.locked ? " pick-locked" : "") + '" style="animation-delay:' + delay + 's">';
@@ -1302,6 +1322,7 @@ function pickCard(p, i) {
   html +=
     '<div class="pick-meta">' +
       '<span class="pick-league">' + escapeHTML(p.league || "Football") + "</span>" +
+      (p.tier && TIER_LABELS[p.tier] ? '<span class="tier-chip tier-' + escapeHTML(p.tier) + '">' + escapeHTML(TIER_LABELS[p.tier]) + "</span>" : "") +
       '<span class="pick-kick">' + escapeHTML(kickoffLabel(p)) + (p.status ? " · " + escapeHTML(String(p.status)) : "") + "</span>" +
     "</div>";
 
@@ -1413,9 +1434,43 @@ function renderPickGroups(list, container) {
   container.innerHTML = html;
 }
 
+/* ---------- ACCA OF THE DAY ---------- */
+function renderAcca() {
+  var box = $("accaHero");
+  if (!box) return;
+  var a = picksData && picksData.acca;
+  if (!a) { box.innerHTML = ""; return; }
+
+  var html = '<article class="acca">' +
+    '<div class="acca-top"><span class="acca-tag">▦ Acca Of The Day</span>' +
+    '<span class="chip chip-confidence">' + pct(a.combined_probability) + " combined</span></div>";
+
+  if (a.locked) {
+    html +=
+      '<div class="lock-body">' +
+        '<svg aria-hidden="true"><use href="#i-lock"/></svg>' +
+        '<div class="lk-t">' + escapeHTML(String(a.leg_count)) + "-leg acca — the day's two strongest bankers combined</div>" +
+        '<p class="lk-s">Legs unlock with Premium — ₦10,000 / 30 days.</p>' +
+        '<button class="btn btn-gold btn-sm" type="button" data-upgrade>Unlock This Acca</button>' +
+      "</div>";
+  } else {
+    html += '<div class="acca-legs">' + (a.legs || []).map(function (leg) {
+      return '<div class="acca-leg"><span class="al-l">' +
+        '<span class="al-t">' + escapeHTML(leg.home_team) + " v " + escapeHTML(leg.away_team) + "</span>" +
+        '<span class="al-m">' + escapeHTML(leg.market_label || "") + " — " + escapeHTML(leg.pick || "") + "</span></span>" +
+        '<span class="al-p">' + pct(leg.probability) + "</span></div>";
+    }).join("") + "</div>";
+    html += '<div class="acca-note">Every leg must land. Model probabilities multiplied — shown combined above.</div>';
+  }
+
+  html += "</article>";
+  box.innerHTML = html;
+}
+
 function renderPicksBoards() {
   var safe = (picksData && picksData.safe_picks) || [];
   var bonus = (picksData && picksData.bonus_picks) || [];
+  renderAcca();
 
   setTabCount("bankers", picksData ? safe.length : null);
   setTabCount("high-odds", picksData ? bonus.length : null);
@@ -1887,5 +1942,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a34630739e729ffc',t:'MTc4ODI4NTc4MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a34740f91cf28614',t:'MTc4ODI5Njk0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -218,5 +218,48 @@ def get_card_record(db: Session = Depends(get_db)):
 
     banker = tally("safe")
     high = tally("bonus")
+
+    # Acca of the Day record: derived from the pinned banker card itself —
+    # each day, the top-2 pinned safe picks are the acca's legs. A day grades
+    # once every leg is settled: all legs won => won; any leg lost => lost;
+    # void legs fall out (all-void day => void). Days still playing => pending.
+    acca_ids_by_day = {}
+    rows = db.query(AutomationState).filter(
+        AutomationState.state_key.like(f"{PIN_PREFIX}:safe:%")
+    ).all()
+    for row in rows:
+        try:
+            day = datetime.fromisoformat(row.state_key.rsplit(":", 1)[1]).date()
+        except Exception:
+            continue
+        value = (row.state_value or "").strip()
+        if value and value != "-":
+            ids = [int(t) for t in (x.strip() for x in value.split(",")) if t.isdigit()][:2]
+            if len(ids) == 2:
+                acca_ids_by_day[day] = ids
+
+    acca = {"won": 0, "lost": 0, "void": 0, "graded": 0, "rate": None,
+            "pending_days": 0, "since": min(acca_ids_by_day).isoformat() if acca_ids_by_day else None}
+    all_leg_ids = {i for ids in acca_ids_by_day.values() for i in ids}
+    statuses = {}
+    if all_leg_ids:
+        for pid, st in db.query(Prediction.id, Prediction.status).filter(Prediction.id.in_(all_leg_ids)).all():
+            statuses[pid] = st
+    for day, ids in acca_ids_by_day.items():
+        sts = [statuses.get(i, "pending") for i in ids]
+        if any(s == "pending" for s in sts):
+            acca["pending_days"] += 1
+            continue
+        live = [s for s in sts if s != "void"]
+        if not live:
+            acca["void"] += 1
+        elif all(s == "won" for s in live):
+            acca["won"] += 1
+        else:
+            acca["lost"] += 1
+    acca["graded"] = acca["won"] + acca["lost"]
+    if acca["graded"]:
+        acca["rate"] = round(acca["won"] / acca["graded"] * 100, 1)
+
     days = [d for d in (banker["since"], high["since"]) if d]
-    return {"since": min(days) if days else None, "banker": banker, "high_odds": high}
+    return {"since": min(days) if days else None, "banker": banker, "high_odds": high, "acca": acca}

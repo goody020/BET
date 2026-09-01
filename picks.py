@@ -57,9 +57,30 @@ PREMIUM_MARKETS = {
 HIGH_ODDS_ONLY = PREMIUM_MARKETS - {"CS", "HTFT"}
 
 BOARD_LIMIT_SAFE = 10
-BOARD_LIMIT_HIGH_ODDS = 4
+BOARD_LIMIT_HIGH_ODDS = 4   # legacy pool selector (fetch_high_odds); not part of the daily deal
 BOARD_LIMIT_CS = 2
 BOARD_LIMIT_HTFT = 2
+
+# ---------------------------------------------------------------- premium deal tiers
+# The daily premium card is tiered by how markets actually SURVIVE (pool audit
+# Aug 2026): BTTS & Over 2.5 lands ~6/10, home-side attack bands ~1/4, true
+# lotteries ~1/10. Away-side multis/margins, win-to-nil and HT combos stay in
+# the engine pool but are NEVER dealt daily — 7% commodities are not a product.
+PREMIUM_DEAL_CORE = {"BTTS_O25"}                            # value core, lands often
+PREMIUM_DEAL_EDGE = {"HOME_MARGIN_2", "HOME_MULTI_HIGH"}    # attack tier, spicy
+PREMIUM_DEAL_LOTTERY = {"CS", "HTFT"}                       # drama tier, 1 a day
+
+DEALT_TIER = {
+    **{m: "CORE" for m in PREMIUM_DEAL_CORE},
+    **{m: "EDGE" for m in PREMIUM_DEAL_EDGE},
+    **{m: "LOTTERY" for m in PREMIUM_DEAL_LOTTERY},
+}
+
+BONUS_LIMIT_CORE = 3
+BONUS_LIMIT_EDGE = 1
+BONUS_LIMIT_LOTTERY = 1
+
+ACCA_LEG_COUNT = 2   # Acca of the Day = top banker legs combined
 
 
 def format_kickoff(dt):
@@ -101,7 +122,7 @@ def merge_selected(existing, new_rows, limit, max_per_fixture=1, max_per_market=
     return selected
 
 
-def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False):
+def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False, tier=None):
     if locked:
         return {
             "prediction_id": pred.id,
@@ -120,6 +141,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
             "locked": True,
             "is_value_bet": False,
             "market_edge": 0,
+            "tier": tier,
         }
 
     insight = None
@@ -149,6 +171,49 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
         "locked": False,
         "is_value_bet": bool(insight),
         "market_edge": round(insight.value_edge * 100, 1) if insight else 0,
+        "tier": tier,
+    }
+
+
+def _build_acca(free_rows, locked: bool):
+    """Acca of the Day: the card's top banker legs combined into one product.
+    Served only while every leg is still playable (pending + upcoming) —
+    once a leg settles, the acca retires to the record (history.py card-record).
+    Free users see the box and the combined probability; the legs stay premium."""
+    if len(free_rows) < ACCA_LEG_COUNT:
+        return None
+    legs = free_rows[:ACCA_LEG_COUNT]
+    combined = 1.0
+    for pred, _ in legs:
+        combined *= (pred.probability or 0.0)
+    combined = round(combined, 4)
+
+    if locked:
+        return {
+            "kind": "ACCA",
+            "locked": True,
+            "leg_count": ACCA_LEG_COUNT,
+            "combined_probability": combined,
+            "legs": None,
+        }
+    return {
+        "kind": "ACCA",
+        "locked": False,
+        "leg_count": ACCA_LEG_COUNT,
+        "combined_probability": combined,
+        "legs": [
+            {
+                "home_team": fixture.home_team,
+                "away_team": fixture.away_team,
+                "league": fixture.league,
+                "kickoff": format_kickoff(fixture.kickoff),
+                "market": pred.market,
+                "market_label": SAFE_MARKET_LABELS.get(pred.market, pred.market),
+                "pick": pred.pick,
+                "probability": pred.probability,
+            }
+            for pred, fixture in legs
+        ],
     }
 
 
@@ -219,28 +284,34 @@ def fetch_high_odds(db: Session, limit: int = BOARD_LIMIT_HIGH_ODDS):
 
 
 BONUS_MIN_PROB = {"CS": 0.10, "HTFT": 0.10}
+LOTTERY_MIN_PROB = 0.10
 
 
-def _bonus_candidates(db: Session, market: str, kickoff_start=None, kickoff_end=None):
+def _dealt_candidates(db: Session, markets, min_prob: float = 0.0, kickoff_start=None, kickoff_end=None):
     q = (
         db.query(Prediction, Fixture)
         .join(Fixture, Prediction.fixture_id == Fixture.id)
         .filter(
             Fixture.status.in_(UPCOMING_STATUSES),
-            Prediction.market == market,
+            Prediction.market.in_(markets),
             Prediction.status == "pending",
-            Prediction.probability >= BONUS_MIN_PROB.get(market, 0.0),
+            Prediction.probability >= min_prob,
         )
     )
     if kickoff_start is not None:
         q = q.filter(Fixture.kickoff >= kickoff_start, Fixture.kickoff < kickoff_end)
     else:
         q = q.filter(Fixture.kickoff >= board_cutoff())
-    return q.order_by(Prediction.probability.desc()).limit(40).all()
+    return q.order_by(Prediction.probability.desc()).limit(60).all()
 
 
 def fetch_bonus(db: Session, market: str, limit: int = 2):
-    return merge_selected([], _bonus_candidates(db, market), limit, max_per_fixture=1)
+    return merge_selected(
+        [],
+        _dealt_candidates(db, {market}, BONUS_MIN_PROB.get(market, 0.0)),
+        limit,
+        max_per_fixture=1,
+    )
 
 
 def select_today_first(db: Session, candidates_fn, limit, merge_kwargs, *args):
@@ -262,15 +333,25 @@ def select_high_odds_rows(db: Session):
     return select_today_first(db, _high_odds_candidates, BOARD_LIMIT_HIGH_ODDS, {"max_per_fixture": 1, "max_per_market": 1})
 
 
+def select_dealt_rows(db: Session, markets, limit: int, min_prob: float = 0.0):
+    return select_today_first(
+        db, _dealt_candidates, limit, {"max_per_fixture": 1}, markets, min_prob
+    )
+
+
 def select_bonus_market_rows(db: Session, market: str, limit: int):
-    return select_today_first(db, _bonus_candidates, limit, {"max_per_fixture": 1}, market)
+    # legacy shim: older callers pass a single market string
+    return select_dealt_rows(db, {market}, limit, BONUS_MIN_PROB.get(market, 0.0))
 
 
 def select_bonus_rows(db: Session):
+    """The daily premium card, tiered by survivability:
+    3x value core (BTTS & Over 2.5) + 1x attack (home margin/score band)
+    + 1x clearly-labeled lottery (best of CS/HTFT)."""
     return (
-        select_high_odds_rows(db)
-        + select_bonus_market_rows(db, "CS", BOARD_LIMIT_CS)
-        + select_bonus_market_rows(db, "HTFT", BOARD_LIMIT_HTFT)
+        select_dealt_rows(db, PREMIUM_DEAL_CORE, BONUS_LIMIT_CORE)
+        + select_dealt_rows(db, PREMIUM_DEAL_EDGE, BONUS_LIMIT_EDGE)
+        + select_dealt_rows(db, PREMIUM_DEAL_LOTTERY, BONUS_LIMIT_LOTTERY, LOTTERY_MIN_PROB)
     )
 
 
@@ -381,22 +462,29 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
 
     if pins is not None:
         free_rows = fetch_pinned(db, pins["safe"])
+        # Acca of the Day: the top banker legs, only while every leg stays playable
+        acca_rows = fetch_pinned(db, pins["safe"][:ACCA_LEG_COUNT])
         bonus_rows = fetch_pinned(db, pins["bonus"])
     else:
         # no card pinned today (pre-first-sync / degraded day): live fallback, still today-first
         free_rows = select_safe_rows(db)
+        acca_rows = free_rows[:ACCA_LEG_COUNT]
         bonus_rows = select_bonus_rows(db)
+
+    acca = _build_acca(acca_rows, locked=not user.is_premium)
 
     if user.is_premium:
         return {
             "plan": user.plan,
             "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
-            "bonus_picks": [serialize_pick(p, f, db) for p, f in bonus_rows],
+            "bonus_picks": [serialize_pick(p, f, db, tier=DEALT_TIER.get(p.market)) for p, f in bonus_rows],
+            "acca": acca,
         }
 
     # Free users: all free-market picks unlocked, premium section locked
     return {
         "plan": user.plan,
         "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
-        "bonus_picks": [serialize_pick(p, f, db, locked=True) for p, f in bonus_rows],
+        "bonus_picks": [serialize_pick(p, f, db, locked=True, tier=DEALT_TIER.get(p.market)) for p, f in bonus_rows],
+        "acca": acca,
     }

@@ -1,16 +1,71 @@
-import os
-import uuid
+"""
+ValueBets Analytics — Paystack billing (fixed build, Sept 2026).
+
+WHAT THIS FIXES (plain English):
+
+1. CHECKOUT 500 ROOT CAUSE
+   The payments ledger table was named "flutterwave_payments" (leftover of the
+   old Flutterwave integration). The live database almost certainly still holds
+   an OLD version of that table; Base.metadata.create_all() never alters an
+   existing table, so the INSERT after Paystack answered crashed unhandled =
+   HTTP 500 for every customer.
+   -> The ledger now lives in a FRESH table "paystack_payments". The old table
+      is left untouched in the database, harmlessly unused (it holds nothing of
+      value — checkout never once succeeded, so there are no real payments in it).
+   -> Even if a ledger write ever fails again, /initialize now logs it and STILL
+      hands the customer their checkout URL. Checkout can never 500 on the
+      ledger again.
+
+2. WEBHOOK ACCEPTED FORGED EVENTS (security)
+   The signature was only checked when a second env var (PAYSTACK_WEBHOOK_SECRET)
+   existed. It was never set on Render, so unsigned webhooks were processed.
+   Paystack signs webhooks with your normal secret key — no second secret needed.
+   -> The signature is now ALWAYS verified with hmac.compare_digest, using
+      PAYSTACK_WEBHOOK_SECRET when set, otherwise PAYSTACK_SECRET_KEY.
+   -> If no usable secret is configured at all, webhooks are rejected with 503
+      (fail closed) instead of being processed unsigned.
+   -> A server-side re-verification call to Paystack still happens before any
+      premium is granted (defense in depth, kept).
+
+3. DOUBLE-GRANT RACE / SPLIT-GRANT
+   The payment row and the user's premium extension were saved in two separate
+   commits, and premium_granted was flagged BEFORE premium was actually added —
+   a crash in between left the ledger lying, and a webhook+verify double-hit
+   could stretch 30 days into 60.
+   -> One atomic commit now writes BOTH (or neither). A replayed webhook, or
+      verify + webhook firing together, can never extend premium twice for the
+      same payment.
+
+4. SMALL HARDENING
+   - If the re-verification call to Paystack fails inside the webhook, we now
+     answer 502 so Paystack retries the event (previously it was swallowed).
+   - The webhook handler is a sync function reading Body()/Header(), so the
+     blocking Paystack call runs in the threadpool instead of freezing the
+     event loop.
+   - New /health route (admin only): reports whether the required env vars are
+     wired, so setup can be confirmed without reading server logs.
+
+UNCHANGED on purpose: route paths (/api/billing/flutterwave/*), response
+shapes, price/currency logic, tx_ref format, verify-redirect flow. The
+grant_premium() and find_existing_payment() helpers are kept so any other file
+importing them keeps working.
+"""
+
 import hmac
 import hashlib
+import json
+import logging
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
-from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import (
@@ -22,8 +77,13 @@ from app import (
     get_current_user,
 )
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:  # python-dotenv absent on the server is fine — env vars arrive via the host
+    pass
 
-load_dotenv()
+logger = logging.getLogger("valuebets.billing")
 
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
 PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET", "").strip()
@@ -53,7 +113,10 @@ router = APIRouter(prefix="/billing/flutterwave", tags=["paystack"])
 # -----------------------------
 
 class Payment(Base):
-    __tablename__ = "flutterwave_payments"
+    # Fresh ledger table. The legacy "flutterwave_payments" table is abandoned
+    # on purpose: create_all() never migrates old shapes, and the legacy shape
+    # is what crashed /initialize with a 500 on every checkout attempt.
+    __tablename__ = "paystack_payments"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
@@ -113,6 +176,12 @@ def paystack_headers():
     }
 
 
+def webhook_signing_secret() -> str:
+    """Paystack signs webhooks with your secret key; PAYSTACK_WEBHOOK_SECRET
+    (if someone set it) is honoured for backwards compatibility."""
+    return PAYSTACK_WEBHOOK_SECRET or PAYSTACK_SECRET_KEY
+
+
 def make_aware(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
         return None
@@ -155,6 +224,9 @@ def parse_user_id_from_meta(meta) -> Optional[int]:
 
 
 def grant_premium(user: User, db: Session, days: int = PREMIUM_DAYS):
+    """Kept for backwards compatibility with any other module that imports it.
+    The hot path (process_verified_transaction) grants and records in ONE
+    commit instead, so it never uses this."""
     now = datetime.now(timezone.utc)
 
     current_until = make_aware(user.premium_until)
@@ -194,6 +266,9 @@ def find_existing_payment(db: Session, tx_ref: str, flw_ref: Optional[str], tran
 
 
 def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
+    """Grant premium for a transaction that PAYSTACK ITSELF has confirmed
+    successful. Idempotent: calling it twice for the same reference never
+    adds a second 30 days. User + ledger are written in ONE commit."""
     if not isinstance(tx, dict):
         return None
 
@@ -213,65 +288,131 @@ def process_verified_transaction(db: Session, tx: dict) -> Optional[Payment]:
     if not user_id:
         return None
 
+    try:
+        charged_amount = float(tx.get("amount", 0)) / 100.0
+    except Exception:
+        return None
+
+    currency = tx.get("currency")
+
+    if charged_amount < PAYSTACK_PREMIUM_AMOUNT:
+        logger.warning("billing: underpayment rejected for %s (%.2f < %.2f)", tx_ref, charged_amount, PAYSTACK_PREMIUM_AMOUNT)
+        return None
+
+    if currency != PAYSTACK_CURRENCY:
+        logger.warning("billing: wrong currency rejected for %s (%s)", tx_ref, currency)
+        return None
+
     user = db.get(User, user_id)
 
     if not user:
         return None
 
-    try:
-        charged_amount = float(tx.get("amount", 0)) / 100.0
-    except Exception:
-        charged_amount = 0.0
-
-    currency = tx.get("currency")
-
-    if charged_amount < PAYSTACK_PREMIUM_AMOUNT:
-        return None
-
-    if currency != PAYSTACK_CURRENCY:
-        return None
-
-    flw_ref = tx.get("reference")
-    transaction_id = str(tx.get("id") or "")
-
-    payment = find_existing_payment(db, tx_ref, flw_ref, transaction_id)
+    # tx_ref (== the reference Paystack stores) is the ONLY authoritative key:
+    # we generated it, it is unique per payment, and it is signed into the
+    # transaction. Never cross-match on Paystack transaction ids — a colliding
+    # or reused id could graft onto the wrong payment and block the grant.
+    payment = db.query(Payment).filter(Payment.tx_ref == tx_ref).first()
 
     if payment and payment.premium_granted:
+        # webhook retry / verify-redirect double hit — do NOT extend again
         return payment
 
+    now = datetime.now(timezone.utc)
+    current_until = make_aware(user.premium_until)
+    new_until = (current_until if current_until and current_until > now else now) + timedelta(days=PREMIUM_DAYS)
+
     if not payment:
-        payment = Payment(
-            user_id=user.id,
-            tx_ref=tx_ref,
-            amount=charged_amount,
-            currency=currency,
-            status="successful",
-            premium_granted=False,
-            premium_days=PREMIUM_DAYS,
-        )
+        payment = Payment(user_id=user.id, tx_ref=tx_ref)
 
     payment.user_id = user.id
     payment.tx_ref = tx_ref
-    payment.flw_ref = flw_ref or payment.flw_ref
-    payment.transaction_id = transaction_id or payment.transaction_id
+    payment.flw_ref = tx.get("reference") or payment.flw_ref
+    payment.transaction_id = str(tx.get("id") or "") or payment.transaction_id
     payment.amount = charged_amount
     payment.currency = currency
     payment.status = "successful"
-    payment.premium_granted = True
     payment.premium_days = PREMIUM_DAYS
+    payment.premium_granted = True
+
+    user.is_premium = True
+    user.plan = "premium"
+    user.premium_until = new_until
 
     db.add(payment)
-    db.commit()
+    db.add(user)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost a race: another worker already granted this same reference.
+        db.rollback()
+        logger.info("billing: concurrent grant for %s — ledger already has it", tx_ref)
+        return db.query(Payment).filter(Payment.tx_ref == tx_ref).first()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("billing: atomic grant failed for %s", tx_ref)
+        return None
+
     db.refresh(payment)
-
-    grant_premium(user, db, PREMIUM_DAYS)
-
+    logger.info("billing: premium granted to user %s until %s (ref %s)", user.id, new_until.isoformat(), tx_ref)
     return payment
+
+
+def verify_with_paystack(tx_ref: str) -> Optional[dict]:
+    """Ask Paystack directly for the truth about a reference. Returns the
+    transaction dict only when Paystack confirms it, else None."""
+    try:
+        response = requests.get(
+            f"{PAYSTACK_API}/transaction/verify/{tx_ref}",
+            headers=paystack_headers(),
+            timeout=30,
+        )
+    except Exception:
+        return None
+
+    try:
+        data = response.json()
+    except Exception:
+        return None
+
+    if response.status_code != 200 or data.get("status") is not True:
+        return None
+
+    tx = data.get("data", {})
+    return tx if isinstance(tx, dict) else None
 
 
 # -----------------------------
 # Routes
 # -----------------------------
+
+@router.get("/health")
+def paystack_billing_health(user: User = Depends(get_current_user)):
+    """Admin-only setup check: which env wiring is present (no secret values
+    are ever returned)."""
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only.")
+
+    secret = PAYSTACK_SECRET_KEY
+    mode = "missing"
+    if secret.startswith("sk_live"):
+        mode = "live"
+    elif secret.startswith("sk_test"):
+        mode = "test"
+
+    return {
+        "paystack_configured": bool(secret),
+        "key_mode": mode,
+        "webhook_signature_protected": bool(webhook_signing_secret()),
+        "backend_url": BACKEND_URL,
+        "frontend_url": FRONTEND_URL,
+        "callback_url": f"{BACKEND_URL}/api/billing/flutterwave/verify",
+        "amount": PAYSTACK_PREMIUM_AMOUNT,
+        "currency": PAYSTACK_CURRENCY,
+        "premium_days": PREMIUM_DAYS,
+    }
+
 
 @router.get("/status")
 def paystack_billing_status(
@@ -325,6 +466,7 @@ def initialize_payment(
             timeout=30,
         )
     except Exception:
+        logger.exception("billing: could not reach Paystack /transaction/initialize")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not connect to Paystack.",
@@ -333,12 +475,14 @@ def initialize_payment(
     try:
         data = response.json()
     except Exception:
+        logger.error("billing: non-JSON Paystack initialize response (HTTP %s)", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Invalid Paystack response.",
         )
 
-    if response.status_code != 200 or data.get("status") != True:
+    if response.status_code != 200 or data.get("status") is not True:
+        logger.warning("billing: Paystack initialize rejected (HTTP %s): %s", response.status_code, data.get("message"))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=data.get("message", "Paystack payment initialization failed."),
@@ -347,23 +491,28 @@ def initialize_payment(
     payment_url = data.get("data", {}).get("authorization_url")
 
     if not payment_url:
+        logger.error("billing: Paystack initialize returned no authorization_url")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Paystack did not return a payment URL.",
         )
 
-    payment = Payment(
-        user_id=user.id,
-        tx_ref=tx_ref,
-        amount=PAYSTACK_PREMIUM_AMOUNT,
-        currency=PAYSTACK_CURRENCY,
-        status="pending",
-        premium_granted=False,
-        premium_days=PREMIUM_DAYS,
-    )
-
-    db.add(payment)
-    db.commit()
+    # Ledger is a receipt, not a gate: never let a ledger hiccup 500 the checkout.
+    try:
+        payment = Payment(
+            user_id=user.id,
+            tx_ref=tx_ref,
+            amount=PAYSTACK_PREMIUM_AMOUNT,
+            currency=PAYSTACK_CURRENCY,
+            status="pending",
+            premium_granted=False,
+            premium_days=PREMIUM_DAYS,
+        )
+        db.add(payment)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("billing: pending ledger write failed for %s (non-fatal, checkout continues)", tx_ref)
 
     return InitializeResponse(
         payment_url=payment_url,
@@ -385,24 +534,10 @@ def verify_payment(
     if not tx_ref:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=cancelled")
 
-    try:
-        response = requests.get(
-            f"{PAYSTACK_API}/transaction/verify/{tx_ref}",
-            headers=paystack_headers(),
-            timeout=30,
-        )
-    except Exception:
-        return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
+    tx = verify_with_paystack(tx_ref)
 
-    try:
-        data = response.json()
-    except Exception:
+    if tx is None:
         return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
-
-    if response.status_code != 200 or data.get("status") != True:
-        return RedirectResponse(url=f"{FRONTEND_URL}/app?payment=error")
-
-    tx = data.get("data", {})
 
     payment = process_verified_transaction(db, tx)
 
@@ -413,28 +548,32 @@ def verify_payment(
 
 
 @router.post("/webhook")
-async def paystack_webhook(
-    request: Request,
+def paystack_webhook(
+    body: bytes = Body(default=b""),
+    x_paystack_signature: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    signature = request.headers.get("x-paystack-signature")
+    secret = webhook_signing_secret()
 
-    if PAYSTACK_WEBHOOK_SECRET:
-        body = await request.body()
-        computed_signature = hmac.new(
-            PAYSTACK_WEBHOOK_SECRET.encode('utf-8'),
-            body,
-            hashlib.sha512
-        ).hexdigest()
+    if not secret:
+        # Fail closed: never process unsigned webhook traffic.
+        logger.error("billing: webhook received but no Paystack secret is configured — rejecting")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook is not configured.",
+        )
 
-        if signature != computed_signature:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid Paystack webhook signature.",
-            )
+    computed = hmac.new(secret.encode("utf-8"), body, hashlib.sha512).hexdigest()
+
+    if not x_paystack_signature or not hmac.compare_digest(x_paystack_signature, computed):
+        logger.warning("billing: webhook with invalid signature rejected")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Paystack webhook signature.",
+        )
 
     try:
-        payload = await request.json()
+        payload = json.loads(body.decode("utf-8"))
     except Exception:
         return {
             "status": "invalid_payload",
@@ -447,21 +586,17 @@ async def paystack_webhook(
         tx_ref = data.get("reference")
 
         if tx_ref:
-            try:
-                response = requests.get(
-                    f"{PAYSTACK_API}/transaction/verify/{tx_ref}",
-                    headers=paystack_headers(),
-                    timeout=30,
+            tx = verify_with_paystack(tx_ref)
+
+            if tx is None:
+                # Could not confirm with Paystack right now — answer 502 so
+                # Paystack retries the webhook instead of dropping the event.
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Could not verify transaction with Paystack.",
                 )
 
-                if response.status_code == 200:
-                    response_data = response.json()
-
-                    if response_data.get("status") == True:
-                        tx = response_data.get("data", {})
-                        process_verified_transaction(db, tx)
-            except Exception:
-                pass
+            process_verified_transaction(db, tx)
 
     return {
         "status": "ok",

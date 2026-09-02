@@ -39,11 +39,11 @@ WHAT THIS FIXES (plain English):
 4. SMALL HARDENING
    - If the re-verification call to Paystack fails inside the webhook, we now
      answer 502 so Paystack retries the event (previously it was swallowed).
-   - The webhook handler is a sync function reading Body()/Header(), so the
-     blocking Paystack call runs in the threadpool instead of freezing the
-     event loop.
-   - New /health route (admin only): reports whether the required env vars are
-     wired, so setup can be confirmed without reading server logs.
+   - The webhook reads the RAW request body (via Request) because the HMAC
+     signature only matches the exact bytes Paystack sent — never a
+     re-serialized JSON dict.
+   - Added /health (admin only): reports which env vars are wired so setup can
+     be confirmed without reading server logs.
 
 UNCHANGED on purpose: route paths (/api/billing/flutterwave/*), response
 shapes, price/currency logic, tx_ref format, verify-redirect flow. The
@@ -61,7 +61,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
@@ -548,9 +548,8 @@ def verify_payment(
 
 
 @router.post("/webhook")
-def paystack_webhook(
-    body: bytes = Body(default=b""),
-    x_paystack_signature: Optional[str] = Header(default=None),
+async def paystack_webhook(
+    request: Request,
     db: Session = Depends(get_db),
 ):
     secret = webhook_signing_secret()
@@ -563,9 +562,13 @@ def paystack_webhook(
             detail="Webhook is not configured.",
         )
 
+    # Raw bytes — the HMAC signature only matches the exact body Paystack sent.
+    body = await request.body()
+    signature = request.headers.get("x-paystack-signature")
+
     computed = hmac.new(secret.encode("utf-8"), body, hashlib.sha512).hexdigest()
 
-    if not x_paystack_signature or not hmac.compare_digest(x_paystack_signature, computed):
+    if not signature or not hmac.compare_digest(signature, computed):
         logger.warning("billing: webhook with invalid signature rejected")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -134,8 +134,13 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
     if market == "OVER_15": return "won" if total_goals >= 2 else "lost"
     if market == "OVER_25": return "won" if total_goals >= 3 else "lost"
     if market == "OVER_35": return "won" if total_goals >= 4 else "lost"
+    if market == "OVER_45": return "won" if total_goals >= 5 else "lost"
+    if market == "UNDER_15": return "won" if total_goals <= 1 else "lost"
+    if market == "UNDER_25": return "won" if total_goals <= 2 else "lost"
     if market == "UNDER_35": return "won" if total_goals <= 3 else "lost"
     if market == "UNDER_45": return "won" if total_goals <= 4 else "lost"
+    if market == "ODD_GOALS": return "won" if total_goals % 2 == 1 else "lost"
+    if market == "EVEN_GOALS": return "won" if total_goals % 2 == 0 else "lost"
     if market == "BTTS_YES": return "won" if (home_goals > 0 and away_goals > 0) else "lost"
     if market == "BTTS_NO": return "won" if (home_goals == 0 or away_goals == 0) else "lost"
     if market == "BTTS_O25": return "won" if (home_goals > 0 and away_goals > 0 and total_goals >= 3) else "lost"
@@ -144,11 +149,26 @@ def settle_prediction(pred: Prediction, home_goals: int, away_goals: int, ht_hom
     away_win = away_goals > home_goals
     draw = home_goals == away_goals
 
+    if market == "DRAW": return "won" if draw else "lost"
     if market == "DC_1X": return "won" if (home_win or draw) else "lost"
     if market == "DC_X2": return "won" if (away_win or draw) else "lost"
     if market == "DC_12": return "won" if (home_win or away_win) else "lost"
     if market == "HOME_DNB": return "void" if draw else ("won" if home_win else "lost")
     if market == "AWAY_DNB": return "void" if draw else ("won" if away_win else "lost")
+
+    if market == "HOME_O25": return "won" if (home_win and total_goals >= 3) else "lost"
+    if market == "AWAY_O25": return "won" if (away_win and total_goals >= 3) else "lost"
+    if market == "HOME_GG": return "won" if (home_win and away_goals > 0) else "lost"
+    if market == "AWAY_GG": return "won" if (away_win and home_goals > 0) else "lost"
+
+    if market == "HT_OVER_05":
+        if ht_home is None or ht_away is None:
+            return "void"
+        return "won" if (ht_home + ht_away) >= 1 else "lost"
+    if market == "HT_OVER_15":
+        if ht_home is None or ht_away is None:
+            return "void"
+        return "won" if (ht_home + ht_away) >= 2 else "lost"
 
     if market == "HOME_OVER_15": return "won" if home_goals >= 2 else "lost"
     if market == "AWAY_OVER_15": return "won" if away_goals >= 2 else "lost"

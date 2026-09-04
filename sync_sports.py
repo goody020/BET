@@ -265,6 +265,12 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
     over_35 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a >= 4))
     under_35 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a <= 3))
     under_45 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h + a <= 4))
+    under_15 = clamp_prob(1.0 - over_15)
+    under_25 = clamp_prob(1.0 - over_25)
+    over_45 = clamp_prob(1.0 - under_45)
+
+    odd_goals = clamp_prob(sum(pr for (h, a), pr in scores.items() if (h + a) % 2 == 1))
+    even_goals = clamp_prob(1.0 - odd_goals)
 
     btts_yes = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > 0 and a > 0))
     btts_no = clamp_prob(1.0 - btts_yes)
@@ -302,7 +308,15 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
     home_margin_2 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h - a >= 2))
     away_margin_2 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a - h >= 2))
 
+    # Combo coupons (SportyBet staples): winner + goals line in one ticket
+    home_o25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > a and h + a >= 3))
+    away_o25 = clamp_prob(sum(pr for (h, a), pr in scores.items() if a > h and h + a >= 3))
+    home_gg = clamp_prob(sum(pr for (h, a), pr in scores.items() if h > a and a > 0))
+    away_gg = clamp_prob(sum(pr for (h, a), pr in scores.items() if a > h and h > 0))
+
     ht_scores = score_matrix(lh * 0.45, la * 0.45)
+    ht_over_05 = clamp_prob(1.0 - ht_scores.get((0, 0), 0.0))
+    ht_over_15 = clamp_prob(sum(pr for (h, a), pr in ht_scores.items() if h + a >= 2))
     ht_home_multi = clamp_prob(sum(ht_scores.get(s, 0) for s in [(1, 0), (2, 0)]))
     ht_away_multi = clamp_prob(sum(ht_scores.get(s, 0) for s in [(0, 1), (0, 2)]))
     ht_draw_multi = clamp_prob(sum(ht_scores.get(s, 0) for s in [(0, 0), (1, 1)]))
@@ -312,8 +326,14 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
         ("OVER_15", "Over 1.5 Goals", over_15),
         ("OVER_25", "Over 2.5 Goals", over_25),
         ("OVER_35", "Over 3.5 Goals", over_35),
+        ("OVER_45", "Over 4.5 Goals", over_45),
+        ("UNDER_15", "Under 1.5 Goals", under_15),
+        ("UNDER_25", "Under 2.5 Goals", under_25),
         ("UNDER_35", "Under 3.5 Goals", under_35),
         ("UNDER_45", "Under 4.5 Goals", under_45),
+        ("ODD_GOALS", "Odd Number Of Goals", odd_goals),
+        ("EVEN_GOALS", "Even Number Of Goals", even_goals),
+        ("DRAW", "Draw", draw),
         ("BTTS_YES", "Both Teams To Score - Yes", btts_yes),
         ("BTTS_NO", "Both Teams To Score - No", btts_no),
         ("BTTS_O25", "BTTS & Over 2.5 Goals", btts_o25),
@@ -330,6 +350,12 @@ def safe_market_predictions(scores: dict, home_team: str, away_team: str, lh: fl
         ("AWAY_OVER_25", f"{away_team} To Score Over 2.5 Goals", away_over_25),
         ("WIN_TO_NIL_HOME", f"{home_team} To Win To Nil", win_nil_home),
         ("WIN_TO_NIL_AWAY", f"{away_team} To Win To Nil", win_nil_away),
+        ("HOME_O25", f"{home_team} To Win & Over 2.5 Goals", home_o25),
+        ("AWAY_O25", f"{away_team} To Win & Over 2.5 Goals", away_o25),
+        ("HOME_GG", f"{home_team} To Win & Both Teams Score", home_gg),
+        ("AWAY_GG", f"{away_team} To Win & Both Teams Score", away_gg),
+        ("HT_OVER_05", "1st Half Over 0.5 Goals", ht_over_05),
+        ("HT_OVER_15", "1st Half Over 1.5 Goals", ht_over_15),
         ("HOME_MULTI_LOW", f"{home_team} Multiscore (1-0, 2-0)", home_multi_low),
         ("HOME_MULTI_HIGH", f"{home_team} Multiscore (2-1, 3-1)", home_multi_high),
         ("AWAY_MULTI_LOW", f"{away_team} Multiscore (0-1, 0-2)", away_multi_low),

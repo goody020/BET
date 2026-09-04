@@ -512,6 +512,38 @@ tr:last-child td{border-bottom:none}
 .legal-body p{color:var(--text-2);font-size:14.5px}
 .legal-body strong{color:var(--text-1)}
 
+/* ============ OPTIONS SHEET (SportyBet-style per-match menu) ============ */
+.options-card{max-width:880px;padding:30px}
+.opt-head .opt-league{font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;color:var(--gold-2);text-transform:uppercase}
+.opt-head h3{font-family:var(--disp);font-weight:700;font-size:21px;margin:6px 0 4px;letter-spacing:.01em}
+.opt-head p{margin:0 0 4px;color:var(--text-3);font-size:12.5px;line-height:1.55;max-width:60ch}
+.opt-group-t{font-family:var(--mono);font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-2);margin:24px 0 10px;display:flex;align-items:center;gap:10px}
+.opt-group-t::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.opt-rows{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.opt-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line-soft);border-radius:10px;background:rgba(255,255,255,.02)}
+.opt-row.opt-dealt{border-color:rgba(236,208,126,.55);background:rgba(212,175,55,.08);box-shadow:0 0 18px -8px var(--gold-glow)}
+.opt-row.opt-locked{opacity:.55}
+.opt-l{flex:1;min-width:0;font-size:13px;color:var(--text-1);font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opt-bar{width:56px;height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;flex:none}
+.opt-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-3),var(--gold-1));border-radius:3px}
+.opt-p{font-family:var(--mono);font-size:12px;color:var(--gold-1);flex:none;min-width:44px;text-align:right}
+.opt-f{font-family:var(--mono);font-size:10.5px;color:var(--text-3);flex:none;min-width:44px;text-align:right}
+.opt-dealt-tag{font-family:var(--mono);font-size:8.5px;font-weight:600;letter-spacing:.16em;padding:3px 7px;border-radius:5px;background:linear-gradient(135deg,var(--gold-1),var(--gold-2));color:var(--gold-ink)}
+.opt-lock-tag{font-family:var(--mono);font-size:8.5px;font-weight:600;letter-spacing:.14em;padding:3px 8px;border-radius:6px;border:1px solid var(--line);color:var(--gold-2);flex:none}
+.opt-btn{margin-top:14px;width:100%}
+
+/* ============ STREAK CHIPS ("WHY") + FORM TRENDS ============ */
+.pick-why{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 16px}
+.why-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--text-2);border:1px solid var(--line);background:rgba(212,175,55,.05);padding:5px 9px;border-radius:7px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.why-chip::before{content:"▲";font-size:8px;color:var(--gold-2)}
+.opt-trends{display:flex;flex-wrap:wrap;gap:7px}
+.opt-trend-note{margin:10px 0 0;font-size:10.5px;color:var(--text-3);font-family:var(--mono);letter-spacing:.04em}
+@media (max-width:640px){
+  .options-card{padding:22px 16px}
+  .opt-rows{grid-template-columns:1fr}
+  .opt-bar{display:none}
+}
+
 /* ============ TOASTS ============ */
 .toast-zone{position:fixed;top:74px;right:22px;z-index:300;display:flex;flex-direction:column;gap:10px;max-width:min(420px,90vw)}
 .msg{padding:15px 20px;border-radius:12px;font-size:14px;font-weight:500;background:rgba(12,14,20,.96);backdrop-filter:blur(8px);border:1px solid var(--line-soft);box-shadow:0 24px 50px -20px rgba(0,0,0,.85);animation:slidein .4s var(--ease)}
@@ -1058,6 +1090,14 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<!-- ============ OPTIONS SHEET MODAL ============ -->
+<div id="optionsModal" class="modal" role="dialog" aria-modal="true" aria-label="All priced options for this match">
+  <div class="modal-card options-card">
+    <button class="modal-x" type="button" data-close-options aria-label="Close">&times;</button>
+    <div id="optionsContent"></div>
+  </div>
+</div>
+
 <!-- ============ SUPPORT ============ -->
 <button class="support-fab" id="supportFab" type="button" data-support-toggle aria-label="Contact support" aria-expanded="false">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -1413,6 +1453,14 @@ function pickCard(p, i) {
         '<span class="chip chip-confidence">' + escapeHTML(p.confidence_label || "") + " " + escapeHTML(String(p.confidence_score != null ? p.confidence_score : "")) + "/100</span>" +
       "</div>";
 
+    if (p.trends && p.trends.length) {
+      html += '<div class="pick-why">' + p.trends.map(function (t) {
+        return '<span class="why-chip"' +
+          (t.odd ? ' title="Streak context: scores24 · partner price @' + escapeHTML(Number(t.odd).toFixed(2)) + '"' : "") +
+          '>' + escapeHTML(t.chip || "") + "</span>";
+      }).join("") + "</div>";
+    }
+
     html += '<div class="pick-figures">';
     html +=
       '<div class="pf"><span class="lab">Probability</span><span class="val">' + pct(p.probability) + "</span></div>" +
@@ -1421,6 +1469,15 @@ function pickCard(p, i) {
       html += '<div class="pf"><span class="lab">Value edge</span><span class="chip chip-value">+' + escapeHTML(String(p.market_edge)) + "%</span></div>";
     }
     html += "</div>";
+  }
+
+  if (p.fixture_id) {
+    html +=
+      '<button class="btn btn-soft btn-sm opt-btn" type="button" data-options="' +
+      escapeHTML(String(p.fixture_id)) + '" data-teams="' +
+      escapeHTML(p.home_team + " v " + p.away_team) + '">' +
+      '<svg style="width:13px;height:13px" aria-hidden="true"><use href="#i-ledger"/></svg>' +
+      "All Options</button>";
   }
 
   html += "</article>";
@@ -1572,6 +1629,85 @@ async function loadPicks() {
     $("bankerPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
     $("highOddsPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
   }
+}
+
+/* ---------- OPTIONS SHEET (SportyBet-style per-match menu) ---------- */
+async function openOptions(fixtureId, fallbackTeams) {
+  var modal = $("optionsModal");
+  var content = $("optionsContent");
+  content.innerHTML =
+    '<div class="opt-head"><span class="opt-league">Loading the full menu</span>' +
+    "<h3>" + escapeHTML(fallbackTeams || "Match options") + '</h3></div>' +
+    '<div class="skeleton" style="height:70px;margin-top:14px"></div>' +
+    '<div class="skeleton" style="height:70px;margin-top:10px"></div>';
+  modal.classList.add("open");
+  try {
+    var data = await apiFetch("/picks/fixture/" + encodeURIComponent(fixtureId) + "/options", { method: "GET" });
+    renderOptions(data, fallbackTeams, content);
+  } catch (err) {
+    content.innerHTML =
+      '<div class="opt-head"><h3>' + escapeHTML(fallbackTeams || "Match options") + "</h3></div>" +
+      '<div class="inline-msg msg-error">' + escapeHTML(err.message) + "</div>";
+  }
+}
+
+function renderOptions(data, fallbackTeams, content) {
+  var f = (data && data.fixture) || {};
+  var teams = (f.home_team && f.away_team)
+    ? f.home_team + " v " + f.away_team
+    : (fallbackTeams || "Match options");
+
+  var html =
+    '<div class="opt-head">' +
+      '<span class="opt-league">' + escapeHTML(f.league || "Football") + "</span>" +
+      "<h3>" + escapeHTML(teams) + "</h3>" +
+      "<p>Every option the model priced for this match, SportyBet-style. " +
+      "<b style=\"color:var(--text-2)\">@ = fair odds</b> (probability with no bookie margin) — only bet when your bookie's price is bigger. " +
+      "Gold-framed rows are on today's dealt card; premium rows unlock with the ₦10,000 card. 18+.</p>" +
+    "</div>";
+
+  var trends = (data && data.trends) || [];
+  if (trends.length) {
+    html += '<div class="opt-group-t">Form Trends</div><div class="opt-trends">';
+    trends.forEach(function (t) {
+      var tag = t.market_label ? '<b style="color:var(--gold-2);font-weight:600">[' + escapeHTML(t.market_label) + "]</b> " : "";
+      html += '<span class="why-chip" style="white-space:normal"' +
+        (t.odd ? ' title="scores24 partner price @' + escapeHTML(Number(t.odd).toFixed(2)) + '"' : "") +
+        ">" + tag + escapeHTML(t.chip || "") + "</span>";
+    });
+    html += '</div><div class="opt-trend-note">Streak data: scores24.live — context, not gospel. The dealt card always follows the model.</div>';
+  }
+
+  var groups = (data && data.groups) || [];
+  groups.forEach(function (g) {
+    html += '<div class="opt-group-t">' + escapeHTML(g.label) + '</div><div class="opt-rows">';
+    (g.options || []).forEach(function (o) {
+      if (o.locked) {
+        html +=
+          '<div class="opt-row opt-locked"><span class="opt-l">' + escapeHTML(o.label) + "</span>" +
+          '<span class="opt-lock-tag">PREMIUM</span></div>';
+        return;
+      }
+      var dealtTag = o.dealt ? ' <span class="opt-dealt-tag">ON CARD · ' + escapeHTML(o.dealt) + "</span>" : "";
+      var valueTag = o.is_value_bet
+        ? '<span class="chip chip-value" style="padding:3px 8px;font-size:9px">+' + escapeHTML(String(o.market_edge)) + "%</span>"
+        : "";
+      html +=
+        '<div class="opt-row' + (o.dealt ? " opt-dealt" : "") + '">' +
+          '<span class="opt-l">' + escapeHTML(o.label) + dealtTag + "</span>" +
+          valueTag +
+          '<span class="opt-bar"><i style="width:' + Math.round((Number(o.probability) || 0) * 100) + '%"></i></span>' +
+          '<span class="opt-p">' + pct(o.probability) + "</span>" +
+          '<span class="opt-f">@' + (o.fair_odds != null ? Number(o.fair_odds).toFixed(2) : "—") + "</span>" +
+        "</div>";
+    });
+    html += "</div>";
+  });
+
+  if (!groups.length) {
+    html += '<div class="empty" style="margin-top:16px"><b>No options priced yet for this match.</b>The full menu appears after the next 07:00 sync.</div>';
+  }
+  content.innerHTML = html;
 }
 
 /* ---------- RESULTS LEDGER ---------- */
@@ -1949,6 +2085,8 @@ document.addEventListener("click", function (e) {
   if ((t = e.target.closest('[data-action="logout"]'))) { logout(); return; }
   if ((t = e.target.closest("[data-legal]"))) { e.preventDefault(); showLegal(t.getAttribute("data-legal")); return; }
   if ((t = e.target.closest("[data-close-legal]"))) { $("legalModal").classList.remove("open"); return; }
+  if ((t = e.target.closest("[data-options]"))) { openOptions(t.getAttribute("data-options"), t.getAttribute("data-teams")); return; }
+  if ((t = e.target.closest("[data-close-options]"))) { $("optionsModal").classList.remove("open"); return; }
   if ((t = e.target.closest(".tabbar .tab"))) { selectTab(t.getAttribute("data-tab")); return; }
   if ((t = e.target.closest('[data-refresh="picks"]'))) { loadPicks(); return; }
   if ((t = e.target.closest('[data-refresh="results"]'))) { loadResults(); return; }
@@ -1958,10 +2096,12 @@ document.addEventListener("click", function (e) {
 /* close modals on backdrop + Escape */
 $("authModal").addEventListener("click", function (e) { if (e.target === this) closeAuthModal(); });
 $("legalModal").addEventListener("click", function (e) { if (e.target === this) this.classList.remove("open"); });
+$("optionsModal").addEventListener("click", function (e) { if (e.target === this) this.classList.remove("open"); });
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
     closeAuthModal();
     $("legalModal").classList.remove("open");
+    $("optionsModal").classList.remove("open");
     toggleSupport(false);
   }
 });
@@ -2051,5 +2191,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a347938a1a9e1606',t:'MTc4ODMwMDMyNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35cd0ee5e79a657',t:'MTc4ODUyMzA0MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

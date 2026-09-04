@@ -8,6 +8,7 @@ from app import SessionLocal
 from sync_sports import sync_fixtures_and_predictions
 from settle_predictions import update_fixtures_from_api, settle_all
 from sync_odds import match_and_save_odds
+from sync_trends import sync_trends
 
 
 AUTOMATION_ENABLED = os.getenv("AUTOMATION_ENABLED", "true").strip().lower() in {
@@ -116,6 +117,14 @@ def run_sync():
         print("Automation: starting odds sync...")
         db = SessionLocal()
         match_and_save_odds(db)
+
+        print("Automation: starting trends ingest (streak chips)...")
+        try:
+            sync_trends(db)
+        except Exception as e:
+            # chips are garnish — a scores24 outage must NEVER block the board
+            print(f"Trends ingest error (non-fatal, board never blocked): {e}")
+            db.rollback()
         db.close()
 
         pin_daily_board()

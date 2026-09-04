@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import get_db, get_current_user, User
 from sports_models import Fixture, Prediction, OddsInsight, AutomationState
+from sync_trends import load_fixture_trends
 
 
 router = APIRouter(prefix="/picks", tags=["picks"])
@@ -132,6 +133,56 @@ def merge_selected(existing, new_rows, limit, max_per_fixture=1, max_per_market=
     return selected
 
 
+# ---------------------------------------------------------------- trend chips ("why this pick")
+# Which scores24 trend markets support which dealt market on a card. Display
+# context only — chips never decide what gets dealt (that stays pure argmax).
+_TREND_OVERS = {"OVER_15", "OVER_25", "OVER_35"}
+_TREND_UNDERS = {"UNDER_15", "UNDER_25", "UNDER_35", "UNDER_45"}
+
+TREND_SUPPORT = {
+    "HOME_WIN": {"HOME_WIN", "DC_1X"},
+    "AWAY_WIN": {"AWAY_WIN", "DC_X2"},
+    "DRAW": {"DRAW"},
+    "DC_1X": {"DC_1X", "HOME_WIN", "DRAW"},
+    "DC_X2": {"DC_X2", "AWAY_WIN", "DRAW"},
+    "DC_12": {"DC_12", "HOME_WIN", "AWAY_WIN"},
+    "HOME_DNB": {"HOME_WIN", "DC_1X"},
+    "AWAY_DNB": {"AWAY_WIN", "DC_X2"},
+    "OVER_05": _TREND_OVERS, "OVER_15": _TREND_OVERS, "OVER_25": _TREND_OVERS | {"BTTS_YES"},
+    "OVER_35": _TREND_OVERS, "OVER_45": _TREND_OVERS,
+    "UNDER_15": _TREND_UNDERS, "UNDER_25": _TREND_UNDERS,
+    "UNDER_35": _TREND_UNDERS, "UNDER_45": _TREND_UNDERS,
+    "BTTS_YES": {"BTTS_YES"}, "BTTS_NO": {"BTTS_NO"},
+    "BTTS_O25": {"BTTS_YES", "OVER_25", "OVER_35"},
+    "HOME_OVER_05": {"HOME_OVER_05", "HOME_OVER_15"},
+    "HOME_OVER_15": {"HOME_OVER_05", "HOME_OVER_15", "HOME_OVER_25"},
+    "HOME_OVER_25": {"HOME_OVER_15", "HOME_OVER_25"},
+    "AWAY_OVER_05": {"AWAY_OVER_05", "AWAY_OVER_15"},
+    "AWAY_OVER_15": {"AWAY_OVER_05", "AWAY_OVER_15", "AWAY_OVER_25"},
+    "AWAY_OVER_25": {"AWAY_OVER_15", "AWAY_OVER_25"},
+    "HOME_O25": {"HOME_WIN", "HOME_OVER_15", "OVER_25"},
+    "AWAY_O25": {"AWAY_WIN", "AWAY_OVER_15", "OVER_25"},
+    "HOME_GG": {"HOME_WIN", "BTTS_YES"},
+    "AWAY_GG": {"AWAY_WIN", "BTTS_YES"},
+    "HOME_MARGIN_2": {"HOME_WIN"}, "AWAY_MARGIN_2": {"AWAY_WIN"},
+    "HOME_MULTI_HIGH": {"HOME_WIN", "BTTS_YES"},
+    "AWAY_MULTI_HIGH": {"AWAY_WIN", "BTTS_YES"},
+    "HT_OVER_05": {"HT_OVER_05", "HT_OVER_15"},
+    "HT_OVER_15": {"HT_OVER_05", "HT_OVER_15"},
+}
+
+
+def trend_chips_for(db: Session, fixture_id: int, market: str, limit: int = 2):
+    """Best streak chips supporting a dealt pick market, ready to render."""
+    support = TREND_SUPPORT.get(market)
+    if not support:
+        return []
+    trends = load_fixture_trends(db, fixture_id)
+    picked = [t for t in trends if t.get("m") in support and t.get("chip")]
+    picked.sort(key=lambda t: t.get("score", 0.0), reverse=True)
+    return [{"chip": t["chip"], "odd": t.get("odd")} for t in picked[:limit]]
+
+
 def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False, tier=None):
     if locked:
         return {
@@ -151,6 +202,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
             "locked": True,
             "is_value_bet": False,
             "market_edge": 0,
+            "trends": [],
             "tier": tier,
         }
 
@@ -181,6 +233,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
         "locked": False,
         "is_value_bet": bool(insight),
         "market_edge": round(insight.value_edge * 100, 1) if insight else 0,
+        "trends": trend_chips_for(db, fixture.id, pred.market, limit=2),
         "tier": tier,
     }
 
@@ -630,6 +683,19 @@ def fixture_options(fixture_id: int, user: User = Depends(get_current_user), db:
             options.sort(key=lambda o: o["probability"], reverse=True)
             groups.append({"key": key, "label": label, "options": options})
 
+    # streak trends for the FORM TRENDS block (display context, never dealt logic)
+    sheet_trends = []
+    try:
+        for t in load_fixture_trends(db, fixture.id)[:6]:
+            sheet_trends.append({
+                "chip": t.get("chip"),
+                "market": t.get("m"),
+                "market_label": SAFE_MARKET_LABELS.get(t.get("m")) if t.get("m") else None,
+                "odd": t.get("odd"),
+            })
+    except Exception:
+        sheet_trends = []
+
     return {
         "fixture": {
             "id": fixture.id,
@@ -639,5 +705,6 @@ def fixture_options(fixture_id: int, user: User = Depends(get_current_user), db:
             "kickoff": format_kickoff(fixture.kickoff),
         },
         "plan": "premium" if is_premium else "free",
+        "trends": sheet_trends,
         "groups": groups,
     }

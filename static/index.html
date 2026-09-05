@@ -372,6 +372,7 @@ section{scroll-margin-top:90px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
 .chip-confidence{background:rgba(212,175,55,.1);color:var(--gold-1);border:1px solid var(--line)}
 .chip-value{background:var(--win-dim);color:var(--win);border:1px solid rgba(47,208,140,.35)}
+.chip-sb{border:1px solid rgba(236,208,126,.5);color:var(--gold-1);background:rgba(212,175,55,.08)}
 .pick-figures{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .pf .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);display:block}
 .pf .val{font-family:var(--disp);font-weight:700;font-size:19px;color:var(--text-1)}
@@ -1433,6 +1434,9 @@ function pickCard(p, i) {
     if (p.is_value_bet) {
       html += '<div class="pf"><span class="lab">Value edge</span><span class="chip chip-value">+' + escapeHTML(String(p.market_edge)) + "%</span></div>";
     }
+    if (p.sb_odd) {
+      html += '<div class="pf"><span class="lab">SportyBet</span><span class="chip chip-sb" title="Live price on sportybet.com.ng at last sync — always confirm on your betslip">@' + escapeHTML(Number(p.sb_odd).toFixed(2)) + "</span></div>";
+    }
     html += "</div>";
   }
 
@@ -1585,6 +1589,13 @@ async function loadPicks() {
     $("bankerPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
     $("highOddsPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
   }
+}
+
+function outcomeClass(status) {
+  var s = String(status || "").toLowerCase();
+  if (s === "won") return "out-won";
+  if (s === "lost") return "out-lost";
+  return "out-void";
 }
 
 function renderResults(rows) {
@@ -2057,5 +2068,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35e17a98a4ef5d9',t:'MTc4ODUzNjQyMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a366f65dea05fb3b',t:'MTc4ODYyOTQzMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

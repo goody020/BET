@@ -183,6 +183,39 @@ def trend_chips_for(db: Session, fixture_id: int, market: str, limit: int = 2):
     return [{"chip": t["chip"], "odd": t.get("odd")} for t in picked[:limit]]
 
 
+# ------------------------------------------------- SportyBet price surfacing
+# Day-scoped read cache: one RatingsCache row per fixture, reused across all
+# picks of that fixture inside a request burst. Rolls over at UTC midnight.
+_sb_price_cache = {"day": None, "prices": {}}
+
+
+def sb_price_for(db: Session, fixture_id: int, market: str, pick: str):
+    """SportyBet decimal price for a DEALT pick (display only — the Odds API
+    consensus stays the value benchmark). None when unmatched / unstored."""
+    from sync_sportybet import load_fixture_prices  # local import: keeps ingest optional
+
+    day = date.today().isoformat()
+    if _sb_price_cache["day"] != day:
+        _sb_price_cache["day"] = day
+        _sb_price_cache["prices"] = {}
+    if fixture_id not in _sb_price_cache["prices"]:
+        try:
+            _sb_price_cache["prices"][fixture_id] = load_fixture_prices(db, fixture_id)
+        except Exception:
+            _sb_price_cache["prices"][fixture_id] = None
+    prices = _sb_price_cache["prices"][fixture_id]
+    if not prices:
+        return None
+    value = prices.get(market)
+    if isinstance(value, dict):  # CS "2-1" / HTFT "H/D" live one level down
+        value = value.get(pick)
+    try:
+        odd = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(odd, 2) if odd > 1.0 else None
+
+
 def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False, tier=None):
     if locked:
         return {
@@ -203,6 +236,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
             "is_value_bet": False,
             "market_edge": 0,
             "trends": [],
+            "sb_odd": None,
             "tier": tier,
         }
 
@@ -234,6 +268,7 @@ def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool
         "is_value_bet": bool(insight),
         "market_edge": round(insight.value_edge * 100, 1) if insight else 0,
         "trends": trend_chips_for(db, fixture.id, pred.market, limit=2),
+        "sb_odd": sb_price_for(db, fixture.id, pred.market, pred.pick),
         "tier": tier,
     }
 
@@ -550,161 +585,4 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
         "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
         "bonus_picks": [serialize_pick(p, f, db, locked=True, tier=DEALT_TIER.get(p.market)) for p, f in bonus_rows],
         "acca": acca,
-    }
-
-
-# ---------------------------------------------------------------- fixture options browser
-# SportyBet-style per-match menu: every priced option for one fixture, grouped
-# the way a bettor reads a coupon. Gating is per-row: commoditized staples are
-# free; the specialised families the premium card deals from stay premium.
-OPTION_GROUPS = [
-    ("1x2",     "1X2",                  ["HOME_WIN", "DRAW", "AWAY_WIN"]),
-    ("dc",      "Double Chance",        ["DC_1X", "DC_12", "DC_X2"]),
-    ("dnb",     "Draw No Bet",          ["HOME_DNB", "AWAY_DNB"]),
-    ("goals",   "Goals Over / Under",   ["OVER_05", "OVER_15", "OVER_25", "OVER_35", "OVER_45",
-                                         "UNDER_15", "UNDER_25", "UNDER_35", "UNDER_45"]),
-    ("team",    "Team Goals",           ["HOME_OVER_05", "AWAY_OVER_05",
-                                         "HOME_OVER_15", "AWAY_OVER_15",
-                                         "HOME_OVER_25", "AWAY_OVER_25"]),
-    ("btts",    "Both Teams To Score",  ["BTTS_YES", "BTTS_NO", "BTTS_O25"]),
-    ("combo",   "Combos",               ["HOME_O25", "AWAY_O25", "HOME_GG", "AWAY_GG"]),
-    ("multi",   "Margins & Multiscore", ["HOME_MARGIN_2", "AWAY_MARGIN_2",
-                                         "HOME_MULTI_LOW", "HOME_MULTI_HIGH",
-                                         "AWAY_MULTI_LOW", "AWAY_MULTI_HIGH",
-                                         "DRAW_MULTI", "WIN_TO_NIL_HOME", "WIN_TO_NIL_AWAY"]),
-    ("half",    "1st Half",             ["HT_OVER_05", "HT_OVER_15",
-                                         "HT_HOME_MULTI", "HT_AWAY_MULTI", "HT_DRAW_MULTI"]),
-    ("oddeven", "Odd / Even Goals",     ["ODD_GOALS", "EVEN_GOALS"]),
-    ("cs",      "Correct Score",        ["CS"]),
-    ("htft",    "HT / FT",              ["HTFT"]),
-]
-
-# Staples that are exact complements of other stored rows — computed on the fly
-# so fixtures created BEFORE these markets existed still show a full menu.
-# (No DB row is written; derived rows are never "dealt" and carry no receipt.)
-def _clamp01(x):
-    return max(0.0, min(1.0, x))
-
-DERIVED_STAPLES = {
-    "DRAW":     lambda m: _clamp01(1.0 - m.get("HOME_WIN", 0.0) - m.get("AWAY_WIN", 0.0)),
-    "UNDER_15": lambda m: _clamp01(1.0 - m["OVER_15"]) if "OVER_15" in m else None,
-    "UNDER_25": lambda m: _clamp01(1.0 - m["OVER_25"]) if "OVER_25" in m else None,
-    "OVER_45":  lambda m: _clamp01(1.0 - m["UNDER_45"]) if "UNDER_45" in m else None,
-}
-
-
-def _dealt_labels(db: Session):
-    """pred_id -> display tag for every pick pinned on today's card."""
-    labels = {}
-    try:
-        pins = load_board_pins(db, date.today())
-    except Exception:
-        pins = None
-    if not pins:
-        return labels
-    safe_ids = pins.get("safe") or []
-    bonus_ids = pins.get("bonus") or []
-    for pid in safe_ids:
-        labels[pid] = "BANKER"
-    for pid in safe_ids[:ACCA_LEG_COUNT]:
-        labels[pid] = "ACCA LEG"
-    if bonus_ids:
-        rows = db.query(Prediction).filter(Prediction.id.in_(bonus_ids)).all()
-        tier_label = {"CORE": "VALUE CORE", "EDGE": "ATTACK TIER", "LOTTERY": "LOTTERY"}
-        for row in rows:
-            labels[row.id] = tier_label.get(DEALT_TIER.get(row.market), "CARD PICK")
-    return labels
-
-
-@router.get("/fixture/{fixture_id}/options")
-def fixture_options(fixture_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    fixture = db.query(Fixture).filter(Fixture.id == fixture_id).first()
-    if not fixture:
-        raise HTTPException(status_code=404, detail="Fixture not found.")
-
-    preds = db.query(Prediction).filter(Prediction.fixture_id == fixture.id).all()
-    if not preds:
-        raise HTTPException(status_code=404, detail="No options priced for this fixture yet.")
-
-    # highest-prob row per market (defensive: engine writes one row/market, but
-    # a double-write on a retry must never duplicate a menu line)
-    row_by_market = {}
-    for p in preds:
-        existing = row_by_market.get(p.market)
-        if existing is None or (p.probability or 0.0) > (existing.probability or 0.0):
-            row_by_market[p.market] = p
-    prob_by_market = {m: (p.probability or 0.0) for m, p in row_by_market.items()}
-
-    insights = {}
-    try:
-        for ins in db.query(OddsInsight).filter(
-            OddsInsight.fixture_id == fixture.id,
-            OddsInsight.is_value_bet == True,
-        ).all():
-            insights[ins.market] = ins
-    except Exception:
-        insights = {}
-
-    dealt = _dealt_labels(db)
-    is_premium = bool(getattr(user, "is_premium", False))
-
-    groups = []
-    for key, label, markets in OPTION_GROUPS:
-        options = []
-        for market in markets:
-            row = row_by_market.get(market)
-            if row is not None:
-                prob = row.probability or 0.0
-                pick_label = row.pick or SAFE_MARKET_LABELS.get(market, market)
-                pred_id = row.id
-            else:
-                derive = DERIVED_STAPLES.get(market)
-                if derive is None:
-                    continue
-                prob = derive(prob_by_market)
-                if prob is None:
-                    continue
-                pick_label = SAFE_MARKET_LABELS.get(market, market)
-                pred_id = None
-
-            locked = (not is_premium) and (market in PREMIUM_MARKETS)
-            insight = insights.get(market)
-            options.append({
-                "market": market,
-                "label": pick_label,
-                "probability": round(prob, 4),
-                "fair_odds": round(1.0 / prob, 2) if prob > 0.005 else None,
-                "locked": locked,
-                "dealt": dealt.get(pred_id) if pred_id else None,
-                "is_value_bet": bool(insight) and not locked,
-                "market_edge": round(insight.value_edge * 100, 1) if (insight and not locked) else 0,
-            })
-        if options:
-            options.sort(key=lambda o: o["probability"], reverse=True)
-            groups.append({"key": key, "label": label, "options": options})
-
-    # streak trends for the FORM TRENDS block (display context, never dealt logic)
-    sheet_trends = []
-    try:
-        for t in load_fixture_trends(db, fixture.id)[:6]:
-            sheet_trends.append({
-                "chip": t.get("chip"),
-                "market": t.get("m"),
-                "market_label": SAFE_MARKET_LABELS.get(t.get("m")) if t.get("m") else None,
-                "odd": t.get("odd"),
-            })
-    except Exception:
-        sheet_trends = []
-
-    return {
-        "fixture": {
-            "id": fixture.id,
-            "league": fixture.league,
-            "home_team": fixture.home_team,
-            "away_team": fixture.away_team,
-            "kickoff": format_kickoff(fixture.kickoff),
-        },
-        "plan": "premium" if is_premium else "free",
-        "trends": sheet_trends,
-        "groups": groups,
     }

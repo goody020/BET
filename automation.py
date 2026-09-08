@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 from datetime import date, datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -213,6 +214,33 @@ def start_scheduler():
         f"Automation started: sync daily at {SYNC_HOUR:02d}:{SYNC_MINUTE:02d}, "
         f"settlement every {SETTLEMENT_INTERVAL_HOURS} hours."
     )
+
+    threading.Thread(target=_boot_catchup, daemon=True).start()
+
+
+def _boot_catchup():
+    """Self-heal after every deploy/restart: if today's SportyBet price ingest
+    never ran (e.g. the deploy landed AFTER the 07:00 sync), run it once instead
+    of waiting a full day with empty chips. Board pins and settlement stay
+    scheduler-only — this only fills display garnish, never the dealt card."""
+    time.sleep(90)  # let the app finish booting before touching the network
+    db = SessionLocal()
+    try:
+        from sync_sportybet import load_lastrun
+        last = load_lastrun(db)
+        if last and last.get("d") == date.today().isoformat() and last.get("s") in {"ok", "partial"}:
+            print("Catch-up: SportyBet prices already ingested today — nothing to do.")
+            return
+        print("Catch-up: SportyBet prices not ingested today yet — running now.")
+        sync_sportybet(db)
+    except Exception as e:
+        print(f"Catch-up SportyBet ingest error (non-fatal): {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 def stop_scheduler():

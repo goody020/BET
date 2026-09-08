@@ -518,6 +518,8 @@ tr:last-child td{border-bottom:none}
 .why-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--text-2);border:1px solid var(--line);background:rgba(212,175,55,.05);padding:5px 9px;border-radius:7px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .why-chip::before{content:"▲";font-size:8px;color:var(--gold-2)}
 
+.feed-note{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:2px 0 12px}
+.feed-note.feed-live{color:var(--gold-2)}
 /* ============ TOASTS ============ */
 .toast-zone{position:fixed;top:74px;right:22px;z-index:300;display:flex;flex-direction:column;gap:10px;max-width:min(420px,90vw)}
 .msg{padding:15px 20px;border-radius:12px;font-size:14px;font-weight:500;background:rgba(12,14,20,.96);backdrop-filter:blur(8px);border:1px solid var(--line-soft);box-shadow:0 24px 50px -20px rgba(0,0,0,.85);animation:slidein .4s var(--ease)}
@@ -890,6 +892,7 @@ tr:last-child td{border-bottom:none}
         <span class="board-label">High hit-rate board</span>
         <span class="board-note">Free for members · new picks after the 07:00 sync</span>
       </div>
+      <div class="feed-note" id="feedNote" hidden></div>
       <div id="bankerPicks" class="picks-grid">
         <div class="skeleton sk-card"></div>
         <div class="skeleton sk-card"></div>
@@ -1585,10 +1588,31 @@ async function loadPicks() {
   try {
     picksData = await apiFetch("/picks/today", { method: "GET" });
     renderPicksBoards();
+    renderFeedNote(picksData);
   } catch (err) {
     $("bankerPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
     $("highOddsPicks").innerHTML = '<div class="inline-msg msg-error" style="grid-column:1/-1">' + escapeHTML(err.message) + "</div>";
   }
+}
+
+/* ---------- PRICE-FEED FRESHNESS NOTE ---------- */
+function renderFeedNote(data) {
+  var note = $("feedNote");
+  if (!note) return;
+  var meta = data && data.meta && data.meta.sportybet;
+  if (!meta || !meta.day) { note.hidden = true; return; }
+  if (meta.matched) {
+    note.textContent = "SportyBet prices live — " + meta.matched + "/" + meta.fixtures +
+      " dealt matches priced · " + meta.day + " sync";
+    note.classList.add("feed-live");
+  } else if (meta.error) {
+    note.textContent = "SportyBet prices: today's sync hit a snag (" + meta.error + ") — retrying on the next cycle";
+    note.classList.remove("feed-live");
+  } else {
+    note.textContent = "SportyBet prices: none matched in the " + meta.day + " sync (" + meta.status + ")";
+    note.classList.remove("feed-live");
+  }
+  note.hidden = false;
 }
 
 function outcomeClass(status) {
@@ -2068,5 +2092,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a366f65dea05fb3b',t:'MTc4ODYyOTQzMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a37ed2e64cef1afa',t:'MTc4ODg3OTYzNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

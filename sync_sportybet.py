@@ -31,8 +31,45 @@ from datetime import date, datetime, timedelta
 import requests
 from sqlalchemy.orm import Session
 
-from sports_models import Fixture, RatingsCache
+from sports_models import AutomationState, Fixture, RatingsCache
 from sync_odds import normalize_team, similar, UPCOMING_STATUSES  # noqa: F401  (normalize_team: shared vocabulary)
+
+LASTRUN_KEY = "sbodds:lastrun"
+
+
+def _record_lastrun(db: Session, status: str, today_str: str, matched=None, fixtures=None, pages=None, error=None):
+    """Self-report of the last ingest run — a tiny JSON row the site meta +
+    Render logs can both point at, so 'did it run?' is never a mystery again.
+    state_value is String(100): keep the payload compact."""
+    payload = {"d": today_str, "s": status}
+    if matched is not None:
+        payload["m"] = matched
+    if fixtures is not None:
+        payload["f"] = fixtures
+    if pages is not None:
+        payload["p"] = pages
+    if error:
+        payload["e"] = str(error)[:40]
+    try:
+        value = json.dumps(payload, separators=(",", ":"))[:100]
+        row = db.query(AutomationState).filter(AutomationState.state_key == LASTRUN_KEY).first()
+        if row:
+            row.state_value = value
+        else:
+            db.add(AutomationState(state_key=LASTRUN_KEY, state_value=value))
+        db.commit()
+    except Exception:
+        db.rollback()  # the report must never break the ingest itself
+
+
+def load_lastrun(db: Session):
+    row = db.query(AutomationState).filter(AutomationState.state_key == LASTRUN_KEY).first()
+    if not row or not row.state_value:
+        return None
+    try:
+        return json.loads(row.state_value)
+    except Exception:
+        return None
 
 CACHE_PREFIX = "sbodds:"
 PRUNE_DAYS = 3
@@ -266,6 +303,7 @@ def sync_sportybet(db: Session, fetcher=None):
     is a reported status, never a broken sync."""
     if not _enabled():
         print("SportyBet ingest: disabled via SPORTYBET_SYNC — skipping.")
+        _record_lastrun(db, "off", date.today().isoformat())
         return {"status": "off"}
 
     today_str = date.today().isoformat()
@@ -281,6 +319,7 @@ def sync_sportybet(db: Session, fetcher=None):
     if not pending:
         prune_stale(db, today_str)
         db.commit()
+        _record_lastrun(db, "no-fixtures", today_str, matched=0, fixtures=0)
         print("SportyBet ingest: no upcoming fixtures — nothing to price.")
         return {"status": "no-fixtures"}
 
@@ -314,9 +353,11 @@ def sync_sportybet(db: Session, fetcher=None):
             db.commit()
         except Exception:
             db.rollback()
+        _record_lastrun(db, "partial", today_str, matched=matched, fixtures=len(pending), pages=pages, error=e)
         return {"status": "partial", "matched": matched, "error": str(e)}
 
     prune_stale(db, today_str)
     db.commit()
+    _record_lastrun(db, "ok", today_str, matched=matched, fixtures=len(pending), pages=pages)
     print(f"SportyBet ingest: priced {matched}/{len(pending)} fixtures over {pages} page(s).")
     return {"status": "ok", "matched": matched, "fixtures": len(pending), "pages": pages}

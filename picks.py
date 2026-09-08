@@ -216,6 +216,26 @@ def sb_price_for(db: Session, fixture_id: int, market: str, pick: str):
     return round(odd, 2) if odd > 1.0 else None
 
 
+def sportybet_meta(db: Session):
+    """Public-safe freshness report for the SportyBet price feed, shown on the
+    today view. Never breaks the board: any failure -> None."""
+    from sync_sportybet import load_lastrun
+
+    try:
+        st = load_lastrun(db)
+    except Exception:
+        return None
+    if not st:
+        return None
+    return {
+        "day": st.get("d"),
+        "status": st.get("s"),
+        "matched": st.get("m", 0),
+        "fixtures": st.get("f", 0),
+        "error": st.get("e"),
+    }
+
+
 def serialize_pick(pred: Prediction, fixture: Fixture, db: Session, locked: bool = False, tier=None):
     if locked:
         return {
@@ -577,6 +597,7 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
             "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
             "bonus_picks": [serialize_pick(p, f, db, tier=DEALT_TIER.get(p.market)) for p, f in bonus_rows],
             "acca": acca,
+            "meta": {"sportybet": sportybet_meta(db)},
         }
 
     # Free users: all free-market picks unlocked, premium section locked
@@ -585,4 +606,5 @@ def picks_today(user: User = Depends(get_current_user), db: Session = Depends(ge
         "safe_picks": [serialize_pick(p, f, db) for p, f in free_rows],
         "bonus_picks": [serialize_pick(p, f, db, locked=True, tier=DEALT_TIER.get(p.market)) for p, f in bonus_rows],
         "acca": acca,
+        "meta": {"sportybet": sportybet_meta(db)},
     }

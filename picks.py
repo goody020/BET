@@ -184,9 +184,14 @@ def trend_chips_for(db: Session, fixture_id: int, market: str, limit: int = 2):
 
 
 # ------------------------------------------------- SportyBet price surfacing
-# Day-scoped read cache: one RatingsCache row per fixture, reused across all
-# picks of that fixture inside a request burst. Rolls over at UTC midnight.
-_sb_price_cache = {"day": None, "prices": {}}
+# Short-TTL read cache: one RatingsCache row per fixture, reused across the
+# picks of one request burst. TWO MINUTES max — a day-scoped cache froze
+# "no price" for a whole day after the catch-up priced fixtures (bug 2026-09-08:
+# gold freshness note, zero chips).
+import time as _time
+
+SB_PRICE_TTL_SECONDS = 120
+_sb_price_cache = {}
 
 
 def sb_price_for(db: Session, fixture_id: int, market: str, pick: str):
@@ -194,16 +199,15 @@ def sb_price_for(db: Session, fixture_id: int, market: str, pick: str):
     consensus stays the value benchmark). None when unmatched / unstored."""
     from sync_sportybet import load_fixture_prices  # local import: keeps ingest optional
 
-    day = date.today().isoformat()
-    if _sb_price_cache["day"] != day:
-        _sb_price_cache["day"] = day
-        _sb_price_cache["prices"] = {}
-    if fixture_id not in _sb_price_cache["prices"]:
+    now = _time.time()
+    hit = _sb_price_cache.get(fixture_id)
+    if hit is None or (now - hit[0]) > SB_PRICE_TTL_SECONDS:
         try:
-            _sb_price_cache["prices"][fixture_id] = load_fixture_prices(db, fixture_id)
+            prices = load_fixture_prices(db, fixture_id)
         except Exception:
-            _sb_price_cache["prices"][fixture_id] = None
-    prices = _sb_price_cache["prices"][fixture_id]
+            prices = None
+        _sb_price_cache[fixture_id] = (now, prices)
+    prices = _sb_price_cache[fixture_id][1]
     if not prices:
         return None
     value = prices.get(market)

@@ -80,6 +80,10 @@ API_URL = "https://www.sportybet.com/api/ng/factsCenter/pcUpcomingEvents"
 # r.jina.ai is a public text-relay: SAME public endpoint, SAME daily batch,
 # just a different exit IP. X-Return-Format: text = pass the JSON through raw.
 JINA_RELAY_PREFIX = "https://r.jina.ai/"
+
+# Bump on every fetch-path change — printed at ingest start so the logs say
+# exactly which build is running (we lost a day once to a silent stale deploy).
+FEED_VERSION = "v2-relay"
 SPORT_ID = "sr:sport:1"
 # SportyBet market ids (verified live 2026-09-04):
 #   1=1X2  10=Double Chance  11=Draw No Bet  18=Over/Under (full-time)
@@ -352,6 +356,7 @@ def sync_sportybet(db: Session, fetcher=None):
     matched = 0
     pages = 0
     session_cache = {}
+    print(f"SportyBet ingest {FEED_VERSION}: {len(pending)} upcoming fixtures in window, fetching...")
     try:
         for page in range(1, MAX_PAGES + 1):
             if page > 1:

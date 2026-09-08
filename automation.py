@@ -228,10 +228,13 @@ def _boot_catchup():
     try:
         from sync_sportybet import load_lastrun
         last = load_lastrun(db)
-        if last and last.get("d") == date.today().isoformat() and last.get("s") in {"ok", "partial"}:
+        # Only "ok" counts as done. A "partial"/failed record from earlier today
+        # (e.g. the blocked direct path) must NOT suppress the retry on a new
+        # build — that's the whole point of deploying.
+        if last and last.get("d") == date.today().isoformat() and last.get("s") == "ok":
             print("Catch-up: SportyBet prices already ingested today — nothing to do.")
             return
-        print("Catch-up: SportyBet prices not ingested today yet — running now.")
+        print(f"Catch-up: SportyBet prices not ingested today yet (last run: {(last or {}).get('s')}) — running now.")
         sync_sportybet(db)
     except Exception as e:
         print(f"Catch-up SportyBet ingest error (non-fatal): {e}")

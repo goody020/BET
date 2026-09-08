@@ -75,6 +75,11 @@ CACHE_PREFIX = "sbodds:"
 PRUNE_DAYS = 3
 
 API_URL = "https://www.sportybet.com/api/ng/factsCenter/pcUpcomingEvents"
+# Fallback egress when SportyBet's CDN rep-blocks Render's datacenter IPs
+# (symptom: HTTP 200 with an empty body -> "Expecting value: line 1 column 1").
+# r.jina.ai is a public text-relay: SAME public endpoint, SAME daily batch,
+# just a different exit IP. X-Return-Format: text = pass the JSON through raw.
+JINA_RELAY_PREFIX = "https://r.jina.ai/"
 SPORT_ID = "sr:sport:1"
 # SportyBet market ids (verified live 2026-09-04):
 #   1=1X2  10=Double Chance  11=Draw No Bet  18=Over/Under (full-time)
@@ -208,21 +213,41 @@ def parse_events(raw):
 
 
 def fetch_page(page_num, session=None):
-    """One paged request. Raises on transport error — caller treats as skip."""
+    """One paged request. Direct first; on any failure (empty/blocked body,
+    HTTP error, transport) retry once through the public relay. Raises after
+    all paths fail — the caller treats the page as unreachable and keeps any
+    partial coverage."""
     http = session or requests
-    resp = http.get(API_URL, params={
+    params = {
         "sportId": SPORT_ID,
         "marketId": MARKET_IDS,
         "specifyMarkets": 1,
         "pageSize": PAGE_SIZE,
         "pageNum": page_num,
         "timeline": TIMELINE_H,
-    }, headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
-    resp.raise_for_status()
-    payload = resp.json()
-    if payload.get("bizCode") != 10000:
-        raise RuntimeError(f"SportyBet bizCode {payload.get('bizCode')}: {payload.get('message')}")
-    return payload.get("data") or {}
+    }
+    from urllib.parse import urlencode
+    full_url = f"{API_URL}?{urlencode(params)}"
+    attempts = [
+        ("direct", API_URL, params, {"User-Agent": USER_AGENT}),
+        ("relay", JINA_RELAY_PREFIX + full_url, None,
+         {"User-Agent": USER_AGENT, "X-Return-Format": "text"}),
+    ]
+    last_err = None
+    for name, url, prms, headers in attempts:
+        try:
+            resp = http.get(url, params=prms, headers=headers, timeout=HTTP_TIMEOUT)
+            resp.raise_for_status()
+            payload = resp.json()
+            if payload.get("bizCode") != 10000:
+                raise RuntimeError(f"SportyBet bizCode {payload.get('bizCode')}: {payload.get('message')}")
+            if name != "direct":
+                print(f"SportyBet fetch: page {page_num} via {name} (direct path was blocked).")
+            return payload.get("data") or {}
+        except Exception as e:
+            last_err = e
+            print(f"SportyBet fetch: {name} path failed for page {page_num} ({e}).")
+    raise RuntimeError(f"all fetch paths failed: {last_err}")
 
 
 def _kickoff_delta_hours(fixture_kickoff, kickoff_ms):

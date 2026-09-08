@@ -27,6 +27,7 @@ import json
 import os
 import time
 from datetime import date, datetime, timedelta
+from urllib.parse import quote, urlencode
 
 import requests
 from sqlalchemy.orm import Session
@@ -80,10 +81,33 @@ API_URL = "https://www.sportybet.com/api/ng/factsCenter/pcUpcomingEvents"
 # r.jina.ai is a public text-relay: SAME public endpoint, SAME daily batch,
 # just a different exit IP. X-Return-Format: text = pass the JSON through raw.
 JINA_RELAY_PREFIX = "https://r.jina.ai/"
+ALLORIGINS_RELAY = "https://api.allorigins.win/raw?url="
+SCRAPERAPI_RELAY = "http://api.scraperapi.com"
 
 # Bump on every fetch-path change — printed at ingest start so the logs say
 # exactly which build is running (we lost a day once to a silent stale deploy).
-FEED_VERSION = "v2-relay"
+FEED_VERSION = "v3-relaychain"
+
+
+def _fetch_attempts(full_url, params):
+    """Fetch-path chain, best first. Keyless paths run anonymously; when the
+    owner drops a free key into Render env, the matching authenticated path
+    jumps the queue — set the env var, Render restarts, done. No re-deploy."""
+    jina_key = os.getenv("JINA_API_KEY", "").strip()
+    scraper_key = os.getenv("SCRAPERAPI_KEY", "").strip()
+    attempts = [("direct", API_URL, params, {"User-Agent": USER_AGENT})]
+    if jina_key:
+        attempts.append(("jina-key", JINA_RELAY_PREFIX + full_url, None,
+                         {"User-Agent": USER_AGENT, "X-Return-Format": "text",
+                          "Authorization": f"Bearer {jina_key}"}))
+    attempts.append(("jina", JINA_RELAY_PREFIX + full_url, None,
+                     {"User-Agent": USER_AGENT, "X-Return-Format": "text"}))
+    attempts.append(("allorigins", ALLORIGINS_RELAY + quote(full_url, safe=""), None,
+                     {"User-Agent": USER_AGENT}))
+    if scraper_key:
+        attempts.append(("scraperapi", SCRAPERAPI_RELAY,
+                         {"api_key": scraper_key, "url": full_url}, {"User-Agent": USER_AGENT}))
+    return attempts
 SPORT_ID = "sr:sport:1"
 # SportyBet market ids (verified live 2026-09-04):
 #   1=1X2  10=Double Chance  11=Draw No Bet  18=Over/Under (full-time)
@@ -230,15 +254,9 @@ def fetch_page(page_num, session=None):
         "pageNum": page_num,
         "timeline": TIMELINE_H,
     }
-    from urllib.parse import urlencode
     full_url = f"{API_URL}?{urlencode(params)}"
-    attempts = [
-        ("direct", API_URL, params, {"User-Agent": USER_AGENT}),
-        ("relay", JINA_RELAY_PREFIX + full_url, None,
-         {"User-Agent": USER_AGENT, "X-Return-Format": "text"}),
-    ]
     last_err = None
-    for name, url, prms, headers in attempts:
+    for name, url, prms, headers in _fetch_attempts(full_url, params):
         try:
             resp = http.get(url, params=prms, headers=headers, timeout=HTTP_TIMEOUT)
             resp.raise_for_status()
